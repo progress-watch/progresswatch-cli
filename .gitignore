@@ -1,0 +1,8 @@
+node_modules/
+dist/
+*.tgz
+.DS_Store
+
+# This is an application, not a library: the lockfile is part of the build.
+# Some machines exclude it globally, which is the wrong default here.
+!package-lock.json
