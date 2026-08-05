@@ -1,5 +1,5 @@
 import { spawn } from 'node:child_process'
-import { createTask, updateTask } from '../api.js'
+import { COMPLETION_RETRY_DELAYS, createTask, updateTask } from '../api.js'
 import { info } from '../output.js'
 import { requireSpace } from './task.js'
 
@@ -23,11 +23,13 @@ export async function run(command: string[], options: RunOptions): Promise<never
 
 	// Swallows on purpose: once the command is running, a reporting failure must not
 	// take it down.
-	const report = async (payload: Parameters<typeof updateTask>[2]) => {
+	const report = async (payload: Parameters<typeof updateTask>[2], delays?: number[]) => {
 		try {
-			await updateTask(server, task.uuid, payload)
+			await updateTask(server, task.uuid, payload, delays)
+			return true
 		} catch (error) {
 			info(`progresswatch: could not report progress: ${(error as Error).message}`)
+			return false
 		}
 	}
 
@@ -71,27 +73,35 @@ export async function run(command: string[], options: RunOptions): Promise<never
 	const elapsed = Math.round((Date.now() - startedAt) / 1000)
 
 	// The server has no concept of failure, only done, so failure travels in `values`.
-	await report({
-		current: 1,
-		end: 1,
-		done: true,
-		values: {
-			status: failed ? 'failed' : 'succeeded',
-			exit_code: exitCode,
-			elapsed,
-			command: command.join(' '),
-			...(signal ? { signal } : {}),
-			log: failed
-				? `Exited with code ${exitCode}${signal ? ` (${signal})` : ''} after ${elapsed}s`
-				: `Completed in ${elapsed}s`,
+	const reported = await report(
+		{
+			current: 1,
+			end: 1,
+			done: true,
+			values: {
+				status: failed ? 'failed' : 'succeeded',
+				exit_code: exitCode,
+				elapsed,
+				command: command.join(' '),
+				...(signal ? { signal } : {}),
+				log: failed
+					? `Exited with code ${exitCode}${signal ? ` (${signal})` : ''} after ${elapsed}s`
+					: `Completed in ${elapsed}s`,
+			},
 		},
-	})
+		COMPLETION_RETRY_DELAYS,
+	)
 
 	info(
 		failed
 			? `progresswatch: "${label}" failed with code ${exitCode} after ${elapsed}s`
 			: `progresswatch: "${label}" finished in ${elapsed}s`,
 	)
+
+	// Not an error: the exit code belongs to the wrapped command.
+	if (!reported) {
+		info(`progresswatch: the server was not told. "${label}" stays open until its data expires.`)
+	}
 
 	process.exit(exitCode)
 }

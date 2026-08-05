@@ -34,6 +34,9 @@ export async function startMockServer() {
 		return { ...task, progress, children: children.map(snapshot) }
 	}
 
+	// Returns a status to fail with, or anything falsy to let the request through.
+	let failWhen = null
+
 	const server = createServer((req, res) => {
 		let body = ''
 		req.on('data', (chunk) => {
@@ -47,6 +50,9 @@ export async function startMockServer() {
 				res.writeHead(status, { 'Content-Type': 'application/json' })
 				res.end(JSON.stringify(data))
 			}
+
+			const fail = failWhen?.({ method: req.method, url: req.url ?? '', payload })
+			if (fail) return send(fail, { error: 'Deliberate failure' })
 
 			const url = req.url ?? ''
 
@@ -138,6 +144,9 @@ export async function startMockServer() {
 		requests,
 		tasks,
 		state,
+		failWhen: (predicate) => {
+			failWhen = predicate
+		},
 		close: () => new Promise((resolve) => server.close(resolve)),
 	}
 }

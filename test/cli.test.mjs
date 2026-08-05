@@ -507,6 +507,49 @@ describe('run', () => {
 		assert.equal(code, 1)
 		assert.match(stderr, /missing required argument 'command'/)
 	})
+
+	test('keeps trying to close the task, and says so when it never could', async (t) => {
+		t.after(() => server.failWhen(null))
+		const { config } = await freshSpace()
+
+		server.failWhen(({ payload }) => payload.done && 503)
+		const { code, stdout, stderr } = await cli(['run', 'echo done anyway'], { config })
+
+		assert.equal(code, 0)
+		assert.equal(stdout.trim(), 'done anyway')
+		assert.match(stderr, /stays open until its data expires/)
+
+		const task = [...server.tasks.values()].find((t) => t.title === 'echo done anyway')
+		assert.equal(task.finished_at, null)
+	})
+})
+
+describe('retry', () => {
+	test('survives a server that fails twice before answering', async (t) => {
+		t.after(() => server.failWhen(null))
+		const { config } = await freshSpace()
+		const task = (await cli(['new', 'Backup'], { config })).stdout.trim()
+
+		let seen = 0
+		server.failWhen(({ method }) => method === 'PUT' && seen++ < 2 && 503)
+		const { code } = await cli(['update', task, '--current', '5', '--end', '10'], { config })
+
+		assert.equal(code, 0)
+		assert.equal(server.state.get(task).current, 5)
+	})
+
+	test('does not retry a 4xx', async (t) => {
+		t.after(() => server.failWhen(null))
+		const { config } = await freshSpace()
+		const task = (await cli(['new', 'Backup'], { config })).stdout.trim()
+
+		server.failWhen(({ method }) => method === 'PUT' && 422)
+		const before = server.requests.length
+		const { code } = await cli(['update', task, '--current', '5', '--end', '10'], { config })
+
+		assert.equal(code, 1)
+		assert.equal(server.requests.length, before + 1)
+	})
 })
 
 describe('help', () => {

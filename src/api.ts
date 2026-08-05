@@ -40,7 +40,34 @@ export class ApiError extends Error {
 	}
 }
 
-async function request<T>(server: string, method: string, path: string, body?: unknown): Promise<T> {
+const RETRY_DELAYS = [200, 500]
+
+// A lost update is carried by the next one; a lost completion is not.
+export const COMPLETION_RETRY_DELAYS = [1000, 2000, 4000, 8000]
+
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
+
+// Safe whatever the method: nothing was written upstream.
+const retriable = (error: ApiError) => error.status === undefined || error.status >= 500
+
+async function request<T>(
+	server: string,
+	method: string,
+	path: string,
+	body?: unknown,
+	delays: number[] = RETRY_DELAYS,
+): Promise<T> {
+	for (let attempt = 0; ; attempt++) {
+		try {
+			return await send<T>(server, method, path, body)
+		} catch (error) {
+			if (attempt >= delays.length || !(error instanceof ApiError) || !retriable(error)) throw error
+			await sleep(delays[attempt] as number)
+		}
+	}
+}
+
+async function send<T>(server: string, method: string, path: string, body?: unknown): Promise<T> {
 	const url = `${server.replace(/\/+$/, '')}${path}`
 
 	let response: Response
@@ -99,8 +126,9 @@ export function updateTask(
 		values?: Record<string, string | number | boolean>
 		done?: boolean
 	},
+	delays?: number[],
 ) {
-	return request<Task>(server, 'PUT', `/tasks/${taskUuid}`, payload)
+	return request<Task>(server, 'PUT', `/tasks/${taskUuid}`, payload, delays)
 }
 
 export function getTask(server: string, taskUuid: string) {
