@@ -1,4 +1,5 @@
 import { createSpace } from '../api.js'
+import { spaceLink } from './connect.js'
 import { type Config, readConfig, resolveServer, serverForSpace, spaceForDirectory, writeConfig } from '../config.js'
 import { info, json, out } from '../output.js'
 
@@ -32,7 +33,9 @@ export async function spaceNew(
 
 	const where = local ? `the space for ${directory}` : 'the default'
 	info(`Created space "${space.title ?? 'untitled'}" on ${server} and made it ${where}.`)
-	info('Pair your phone with: progresswatch connect')
+	// The QR stays in connect: twenty lines of terminal on every space new, in CI too.
+	info(`Watch it:  ${spaceLink(server, space.uuid)}`)
+	info('On a phone: progresswatch connect  (same link, as a QR to scan)')
 }
 
 // Local knowledge only. There is no endpoint for this and there should not be:

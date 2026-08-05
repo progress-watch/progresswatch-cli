@@ -1,4 +1,4 @@
-import { createTask, getSpace, getTask, updateTask } from '../api.js'
+import { ApiError, createTask, getSpace, getTask, updateTask } from '../api.js'
 import { readConfig, resolveSpace, serverForSpace } from '../config.js'
 import { formatTask, info, json, out } from '../output.js'
 
@@ -23,8 +23,21 @@ export function requireSpace(): { server: string; space: string } {
 // A server only ever comes from a space entry, never from a global default. Commands
 // addressed by task uuid therefore need a space to say which server to talk to — use
 // --space to point them at one other than the default.
-function taskServer(): string {
-	return requireSpace().server
+async function onTask<T>(uuid: string, call: (server: string) => Promise<T>): Promise<T> {
+	const { server, space } = requireSpace()
+
+	try {
+		return await call(server)
+	} catch (error) {
+		if (!(error instanceof ApiError) || (error.status !== undefined && error.status !== 404)) throw error
+
+		throw new ApiError(
+			`${error.message}\n` +
+				`  ${server} is where space ${space} lives. A task uuid does not carry a server of its own.\n` +
+				`  If ${uuid} belongs elsewhere:  --space <uuid>`,
+			error.status,
+		)
+	}
 }
 
 export async function taskNew(
@@ -57,7 +70,7 @@ export async function taskUpdate(
 	},
 	asJson: boolean,
 ): Promise<void> {
-	const task = await updateTask(taskServer(), uuid, options)
+	const task = await onTask(uuid, (server) => updateTask(server, uuid, options))
 
 	if (asJson) {
 		json(task)
@@ -70,7 +83,7 @@ export async function taskUpdate(
 // it sits at "waiting for data", which a watcher cannot tell apart from a reporter that
 // died before its first write.
 export async function taskStart(uuid: string, asJson: boolean): Promise<void> {
-	const task = await updateTask(taskServer(), uuid, { current: 0, end: 1 })
+	const task = await onTask(uuid, (server) => updateTask(server, uuid, { current: 0, end: 1 }))
 
 	if (asJson) {
 		json(task)
@@ -80,7 +93,7 @@ export async function taskStart(uuid: string, asJson: boolean): Promise<void> {
 }
 
 export async function taskDone(uuid: string, asJson: boolean): Promise<void> {
-	const task = await updateTask(taskServer(), uuid, { done: true })
+	const task = await onTask(uuid, (server) => updateTask(server, uuid, { done: true }))
 
 	if (asJson) {
 		json(task)
@@ -112,7 +125,7 @@ export async function taskList(asJson: boolean): Promise<void> {
 }
 
 export async function taskShow(uuid: string, asJson: boolean): Promise<void> {
-	const task = await getTask(taskServer(), uuid)
+	const task = await onTask(uuid, (server) => getTask(server, uuid))
 
 	if (asJson) {
 		json(task)

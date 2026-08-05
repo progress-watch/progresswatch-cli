@@ -66,6 +66,13 @@ describe('scriptability', () => {
 		assert.match(stderr, /Created space/)
 	})
 
+	test('space new prints the watch link beside the uuid', async () => {
+		const { stdout, stderr } = await cli(['space', 'new', 'Production'])
+
+		assert.match(stderr, new RegExp(`/s/${stdout.trim()}`))
+		assert.doesNotMatch(stdout, /\/s\//)
+	})
+
 	// Adding a shared uuid is the whole reason --server exists: without it a self-hosted
 	// space is filed under the default host and every later command talks to the wrong
 	// machine. Run without PROGRESSWATCH_SERVER so the flag is the only thing deciding.
@@ -149,6 +156,15 @@ describe('scriptability', () => {
 
 		assert.equal(code, 1)
 		assert.match(stderr, /cannot reach http:\/\/127\.0\.0\.1:1/)
+	})
+
+	test('says which server a task command actually looked on', async () => {
+		const { config } = await freshSpace()
+		const { code, stderr } = await cli(['done', 'a-task-from-somewhere-else'], { config })
+
+		assert.equal(code, 1)
+		assert.match(stderr, /does not carry a server of its own/)
+		assert.match(stderr, /--space <uuid>/)
 	})
 
 	test('exits non-zero when no space is configured', async () => {
