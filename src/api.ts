@@ -47,7 +47,8 @@ export const COMPLETION_RETRY_DELAYS = [1000, 2000, 4000, 8000]
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
 
-// Safe whatever the method: nothing was written upstream.
+// Safe whatever the method: nothing was written upstream. A 429 is not retried either:
+// the window is an hour, so waiting it out is the caller's decision, not ours.
 const retriable = (error: ApiError) => error.status === undefined || error.status >= 500
 
 async function request<T>(
