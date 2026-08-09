@@ -49,7 +49,7 @@ function jsonOption(what: string): Option {
 
 const program = new Command()
 	.name('progresswatch')
-	.description('Report progress from anything that runs without a screen, and watch it on your phone.')
+	.description('Report progress from anything that runs without a screen, and watch it from anywhere.')
 	.version(VERSION, '-v, --version')
 	.enablePositionalOptions()
 	.showHelpAfterError('Run with --help to see the options.')

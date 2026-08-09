@@ -1,7 +1,7 @@
 {
 	"name": "progresswatch",
 	"version": "0.0.1",
-	"description": "Report progress from any script, crawler, CI job or agent and watch it on your phone",
+	"description": "Report progress from anything that runs without you, and watch it from anywhere",
 	"license": "MIT",
 	"homepage": "https://progress.watch",
 	"repository": {
@@ -10,9 +10,16 @@
 	},
 	"keywords": [
 		"progress",
+		"progress-bar",
+		"progress-tracking",
+		"task-tracking",
 		"cli",
+		"ci",
 		"monitoring",
-		"notifications"
+		"notifications",
+		"push-notifications",
+		"ai-agents",
+		"self-hosted"
 	],
 	"type": "module",
 	"bin": {

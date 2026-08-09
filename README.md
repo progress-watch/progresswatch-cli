@@ -1,6 +1,6 @@
-# progresswatch
+# Progress Watch CLI
 
-Report progress from any script, crawler, CI job or agent, and watch it on your phone.
+Report progress from any script, crawler, CI job or agent, and watch it from anywhere.
 Get a push notification when it finishes.
 
 ```bash
@@ -17,9 +17,10 @@ self-hosted with one `docker compose up`, or used hosted at
 ## Sixty seconds
 
 ```bash
-progresswatch space new "My stuff"     # create a space, saved as the default
-progresswatch connect                  # scan the QR with the app
-progresswatch run "python train.py"    # watch it on your phone
+progresswatch space new "My stuff"                     # saved as the default
+TASK=$(progresswatch new "Crawl docs")                 # a task to report against
+progresswatch update $TASK --current 1200 --end 50000  # in your loop
+progresswatch done $TASK                               # sends the notification
 ```
 
 Already have a space — someone shared it, or you made it in the browser:
@@ -29,21 +30,23 @@ progresswatch space use <uuid> --server https://progress.watch
 ```
 
 Either way the choice is written to `~/.progresswatchrc` and every later command uses it.
-Environment variables exist too, but they are for CI, where there is no config file to
-write — see [Configuration](#configuration).
+In CI there is no config file to write, so use the environment variables instead — see
+[Configuration](#configuration).
 
-`run` is the whole product for a lot of people: it creates a task, runs your command,
-streams the output through untouched, and marks the task done when it exits — with a
-push notification to your phone. Nothing else to set up.
+`new`, `update` and `done` are what you will type most. When the process is not yours to
+change, `progresswatch run "python train.py"` wraps it instead — no counts, just a start
+and a finish, but nothing to edit.
 
 ---
 
 ## Commands
 
 ```
-progresswatch space new [title]              create a space, save as default
+progresswatch configure --server <url>       point this machine at your own server
+progresswatch space new [title] [--local]    create a space, save as default
 progresswatch space list                     spaces known locally
-progresswatch space use <uuid> [--server <url>]  switch default, recording its server
+progresswatch space use <uuid> [--server <url>] [--local]   switch the default
+progresswatch space unbind                   drop this directory's space
 progresswatch connect                        print QR + deep link to pair the phone
 
 progresswatch new <title> [--parent <uuid>]  create task, print uuid
@@ -55,6 +58,32 @@ progresswatch show <uuid>                    task detail with children
 
 progresswatch run <command>                  run a command and track it
 ```
+
+### Reporting from inside the work
+
+```bash
+TASK=$(progresswatch new "Crawl docs")
+
+progresswatch start $TASK
+
+progresswatch update $TASK --current 1200 --end 50000 --values pages=1200 --values errors=3 --values log="Timeout on /foo, retrying"
+
+progresswatch done $TASK
+```
+
+Progress is `current` out of `end`, not a percentage — the dashboard shows you
+`1200 / 50000 pages`, which tells you something that `2.4%` does not. `end` can change
+between calls; a crawler that discovers more URLs just sends a bigger number.
+
+Send `start` when the work begins even if there is nothing to count yet. Without it the
+task reads as "waiting for data", which looks identical to a reporter that died.
+
+`--values` takes any flat `key=value` pairs. Numbers and `true`/`false` are sent as real
+types, everything else as a string. A `log` key is rendered as the task's last line —
+it is the *last* line, not a history.
+
+**Every update replaces the whole state.** Leave `--values` out of a later call and the
+stored values are cleared, not kept. Send your complete state each time.
 
 ### `run`
 
@@ -71,41 +100,9 @@ The command's stdout and stderr pass through untouched, so `progresswatch run ".
 behaves exactly as it would without the wrapper. `run` exits with the wrapped command's
 exit code, and a non-zero exit is recorded on the task as `status=failed` with the code.
 
-While the command runs, the task is refreshed periodically so it does not fall off the
-server's inactivity timeout and so the app can tell it is still alive.
-
-If the task cannot be created — server down, wrong space — `run` fails immediately
-rather than running your command untracked. Once it is running, the opposite applies: a
-failed progress report is logged and the command carries on.
-
-### Reporting progress by hand
-
-```bash
-TASK=$(progresswatch new "Crawl docs")
-
-progresswatch start $TASK
-
-progresswatch update $TASK --current 1200 --end 50000 \
-  --values pages=1200 --values errors=3 --values log="Timeout on /foo, retrying"
-
-progresswatch done $TASK
-```
-
-Progress is `current` out of `end`, not a percentage — the app shows you
-`1200 / 50000 pages`, which tells you something that `2.4%` does not. `end` can change
-between calls; a crawler that discovers more URLs just sends a bigger number.
-
-`start` exists because a created task reads as "waiting for data" until something arrives,
-and that looks identical to a reporter that died before its first write. Send it when the
-work begins, even if there is nothing to count yet.
-
-`--values` takes any flat `key=value` pairs. Numbers and `true`/`false` are sent as real
-types, everything else as a string. A `log` key is rendered as the task's last line —
-it is the *last* line, not a history.
-
-**Every update replaces the whole state.** If you leave `--values` out of a later call,
-the stored values are cleared, not kept. Send your complete state each time; the process
-doing the work always knows it, so this is simpler than tracking what you already sent.
+If the task cannot be created — server down, wrong space — `run` fails immediately rather
+than running your command untracked. Once it is running, nothing about reporting can take
+your command down: a failed update is logged and the command carries on.
 
 ### Nesting
 
@@ -203,51 +200,48 @@ used in CI:
 | `PROGRESSWATCH_SPACE` | space UUID, same as `--space` |
 | `PROGRESSWATCH_CONFIG` | config file path, default `~/.progresswatchrc` |
 
-### The server belongs to the space, not to your settings
-
-Each space records the server it was created against. **There is no global "which server
-am I using" setting** — one hosted space and two self-hosted ones at the same time is the
-normal case, not a mode you switch between.
-
-The top-level `server` in the config is only the value copied into the *next* space you
-add. Changing it never repoints spaces you already have, which is what would otherwise
-make a screenful of tasks appear to vanish.
-
-`progresswatch configure` is how you set it:
+### Self-hosting
 
 ```bash
 progresswatch configure --server https://pw.internal
 progresswatch configure --list
 ```
 
-It checks the server before saving — `/up` has to answer, and answer that its database
-and Redis are both up — because a config pointing at a host that is not there fails later
-and somewhere else. `--list` prints what is actually in effect and names the environment
-variable when one is doing the deciding.
+`configure` checks the server answers before saving it, and sets the host for spaces you
+create *from now on*. Spaces you already have keep theirs — each one records the server it
+was created against, so watching a hosted space and two self-hosted ones at once is
+normal. `--list` prints what is actually in effect, and names the environment variable
+when one is overriding.
 
-A directory bound with `space use --local` needs no server of its own: it points at a
-space, and the space carries the host.
-
-Commands addressed by task uuid — `update`, `done`, `show` — need to know which space,
-and therefore which server, to talk to. They use your default space, and `--space` points
-them somewhere else for one command:
+`--space` points a single command at a different space, and therefore at its server:
 
 ```bash
 progresswatch show "$TASK" --space "$OTHER_SPACE_UUID"
 progresswatch run --space "$WORK_SPACE" "make deploy"
 ```
 
-If no space is selected at all, they fail rather than guessing a server.
+With no space selected at all, commands addressed by task uuid fail rather than guess a
+server to talk to.
+
+### A directory can have its own space
+
+```bash
+progresswatch space new "Crawler" --local
+progresswatch space use 406d45fd-... --local
+progresswatch space unbind
+```
+
+Everything run from that directory or below reports into that space whatever the default
+is, and `PROGRESSWATCH_SPACE` still wins so CI is unaffected. The binding lives in
+`~/.progresswatchrc` keyed by path rather than in a file inside the project — a space uuid
+is a credential, and files in a project get committed.
 
 ### The space UUID is a credential
 
-There are no accounts and no passwords. Whoever knows a space UUID can read and write
-that space; sharing a space means giving someone the UUID. Keep it out of committed
-files and CI logs — use a secret, the way you would with an API token.
-
-`space list` shows only what this machine knows. The server has no way to list your
-spaces, because without accounts it has no idea which ones are yours. Losing the UUID
-means losing the space, so treat `~/.progresswatchrc` as worth backing up.
+There are no accounts. Whoever knows a space UUID can read and write that space, so keep
+it in a secret rather than a committed file, the way you would an API token. The server
+cannot list your spaces — without accounts it has no idea which are yours — so losing the
+UUID loses the space. `~/.progresswatchrc` is worth backing up.
 
 ---
 
@@ -263,10 +257,9 @@ Prints a QR code and a link to the space:
 https://progress.watch/s/406d45fd-...
 ```
 
-Scan it, or open the link on your phone. It is an ordinary link, not a custom URL scheme,
-so it works with nothing installed — and opening the page is what records the space on
-that device. The link carries its own host, so this works the same for the hosted service
-and for your own box.
+Scan it, or open the link. It is an ordinary link with nothing to install, it carries its
+own host so a self-hosted space works the same, and opening it is what records the space
+on that device.
 
 Add the page to the home screen to get notifications. On iOS that is a requirement rather
 than a nicety: Safari delivers Web Push only to an installed web app.
@@ -275,21 +268,12 @@ than a nicety: Safari delivers Web Push only to an installed web app.
 
 ## Using it from an AI agent
 
-The package ships an agent skill at `skills/progresswatch-cli/`. Point your agent at it
-and it will report its own long-running work into a space without further prompting — the
-skill covers the command surface, the progress model, and the scripting contract.
+The package ships a skill at `skills/progresswatch-cli/`. Point your agent at it and it
+reports its own long-running work into a space without further prompting — one task for
+the job, one child task per step, closed as they finish.
 
-```
-skills/progresswatch-cli/
-├── SKILL.md
-└── references/
-    ├── commands.md     every command and flag
-    ├── reporting.md    what the numbers mean, nesting, the three states
-    └── scripting.md    stdout/stderr, exit codes, CI, long-running jobs
-```
-
-If you would rather the agent call the API directly, the server also speaks MCP — see the
-server's README.
+If you would rather the agent skip the CLI, the server speaks MCP — see the
+[server's README](https://github.com/progress-watch/progresswatch).
 
 ## Development
 
@@ -301,10 +285,6 @@ npm run build      # esbuild -> dist/cli.js
 npm test           # builds, then runs the suite against an in-process mock server
 npm run typecheck
 ```
-
-There is no SDK package to depend on: the CLI talks to the API with native `fetch`,
-because wrapping a single HTTP request would add nothing. The only runtime dependency is
-a QR code generator.
 
 ## License
 

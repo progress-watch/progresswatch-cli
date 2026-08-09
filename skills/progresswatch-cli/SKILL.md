@@ -4,7 +4,7 @@ description: >
   Report progress from any long-running process via the Progress Watch CLI - create
   tasks, report counts, wrap commands, and get a push notification when work finishes.
   Use when the user wants to track a script, crawler, CI job, or agent from the shell,
-  or asks to watch progress on their phone. Always load this skill before running
+  or asks to watch progress while it runs. Always load this skill before running
   `progresswatch` commands.
 license: MIT
 metadata:
@@ -103,16 +103,16 @@ interpolated into a shell command on your behalf.
 
 ## Common Patterns
 
-**Wrap a command — the shortest path to a notification:**
-```bash
-progresswatch run "python train.py"
-```
-
-**Report a loop by hand:**
+**Report a loop — this is the common one, and the only shape that carries counts:**
 ```bash
 TASK=$(progresswatch new "Crawl docs")
 progresswatch update "$TASK" --current 1200 --end 50000 --values pages=1200 --values errors=3
 progresswatch done "$TASK"
+```
+
+**Wrap a command you cannot change — start and finish, no counts:**
+```bash
+progresswatch run "python train.py"
 ```
 
 **Break work into steps — created up front, closed as they finish:**
