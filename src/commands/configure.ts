@@ -1,20 +1,12 @@
 import { createInterface } from 'node:readline/promises'
-import { ApiError } from '../api.js'
+import { ApiError, getHealth } from '../api.js'
 import { DEFAULT_SERVER, readConfig, resolveServer, spaceForDirectory, writeConfig } from '../config.js'
 import { info, json } from '../output.js'
 
 async function reachable(server: string): Promise<void> {
-	let response: Response
-	try {
-		response = await fetch(`${server.replace(/\/$/, '')}/up`)
-	} catch (error) {
-		throw new ApiError(`cannot reach ${server}: ${error instanceof Error ? error.message : String(error)}`)
-	}
-
-	if (!response.ok) throw new ApiError(`${server} answered ${response.status} on /up`)
-
-	const health = (await response.json()) as { database?: boolean; redis?: boolean }
+	const health = await getHealth(server)
 	const down = ['database', 'redis'].filter((part) => health[part as 'database' | 'redis'] === false)
+
 	if (down.length > 0) throw new ApiError(`${server} is up but its ${down.join(' and ')} is not`)
 }
 

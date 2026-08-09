@@ -42,6 +42,7 @@ and a finish, but nothing to edit.
 ## Commands
 
 ```
+progresswatch status                         check the current space's server
 progresswatch configure --server <url>       point this machine at your own server
 progresswatch space new [title] [--local]    create a space, save as default
 progresswatch space list                     spaces known locally
@@ -206,6 +207,10 @@ used in CI:
 progresswatch configure --server https://pw.internal
 progresswatch configure --list
 ```
+
+`progresswatch status` answers the question that comes later — which space am I reporting
+into, on which server, and is that server alive — and exits non-zero when it is not, so it
+works as a gate in CI.
 
 `configure` checks the server answers before saving it, and sets the host for spaces you
 create *from now on*. Spaces you already have keep theirs — each one records the server it

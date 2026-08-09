@@ -4,6 +4,7 @@ import { configure } from './commands/configure.js'
 import { connect } from './commands/connect.js'
 import { run } from './commands/run.js'
 import { spaceList, spaceNew, spaceUnbind, spaceUse } from './commands/space.js'
+import { status } from './commands/status.js'
 import { taskDone, taskList, taskNew, taskShow, taskStart, taskUpdate } from './commands/task.js'
 import { info } from './output.js'
 
@@ -80,6 +81,19 @@ examples(
 			configure({ server: options.server, list: options.list, asJson: options.json }),
 		),
 	['progresswatch configure', 'progresswatch configure --server https://pw.internal', 'progresswatch configure --list'],
+)
+
+examples(
+	program
+		.command('status')
+		.description('Check the server the current space lives on, and say which setting chose it')
+		.addOption(spaceOption())
+		.addOption(jsonOption('the check'))
+		.action((options: { space?: string; json: boolean }) => {
+			applySpace(options)
+			return status({ asJson: options.json })
+		}),
+	['progresswatch status', 'progresswatch status --json | jq -r .reachable'],
 )
 
 const space = program.command('space').description('Manage the spaces this machine knows about')

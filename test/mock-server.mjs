@@ -130,7 +130,7 @@ export async function startMockServer() {
 				return send(200, snapshot(task))
 			}
 
-			if (req.method === 'GET' && url === '/up') return send(200, { status: 'ok' })
+			if (req.method === 'GET' && url === '/up') return send(200, { status: 'ok', database: true, redis: true })
 
 			return send(404, { error: 'Not found' })
 		})

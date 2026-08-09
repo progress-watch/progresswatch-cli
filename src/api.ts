@@ -97,6 +97,14 @@ async function send<T>(server: string, method: string, path: string, body?: unkn
 	return (text ? JSON.parse(text) : {}) as T
 }
 
+export type Health = { status: string; database: boolean; redis: boolean }
+
+// Not retried: `configure` and `status` are asking whether the server is there right now,
+// and waiting 0.7s to say so twice more is the opposite of what either wants.
+export function getHealth(server: string) {
+	return request<Health>(server, 'GET', '/up', undefined, [])
+}
+
 export type SpaceSummary = { uuid: string; title: string | null; icon: string | null }
 
 export function createSpace(server: string, title?: string, icon?: string) {

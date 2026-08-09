@@ -58,6 +58,7 @@ not in a committed file.
 |---|---|
 | `configure` | point this machine at a self-hosted server; `--list` shows what is in effect |
 | `space` | new, list, use, unbind |
+| `status` | check the current space's server; non-zero when it is unreachable |
 | `connect` | print a QR code and deep link to pair a phone |
 | task | `new`, `start`, `update`, `done`, `list`, `show` |
 | `run` | wrap a command: create, stream, finish, report the exit code |

@@ -349,6 +349,49 @@ describe('rendering', () => {
 	})
 })
 
+// The one command that answers rather than throws: "no space selected" is the diagnosis,
+// so it prints it and then carries it in the exit code.
+describe('status', () => {
+	test('reports the space, its server, and the health of that server', async () => {
+		const { code, stderr } = await cli(['status'])
+
+		assert.equal(code, 0)
+		assert.match(stderr, /Server: {4}/)
+		assert.match(stderr, /Health: {4}ok {2}\(database ok, redis ok\)/)
+	})
+
+	test('names the environment variable when one is doing the deciding', async () => {
+		const { stderr } = await cli(['status'])
+
+		assert.match(stderr, /\(from PROGRESSWATCH_SERVER\)/)
+	})
+
+	test('says so and exits non-zero when nothing is selected', async () => {
+		const config = join(mkdtempSync(join(tmpdir(), 'pw-status-')), 'rc.json')
+
+		const { code, stdout, stderr } = await cli(['status'], { config, noServerEnv: true })
+
+		assert.equal(code, 1)
+		assert.equal(stdout, '')
+		assert.match(stderr, /none selected/)
+	})
+
+	test('exits non-zero when the server does not answer, and names it', async () => {
+		const { code, stderr } = await cli(['status'], { server: 'http://127.0.0.1:1' })
+
+		assert.equal(code, 1)
+		assert.match(stderr, /unreachable/)
+		assert.match(stderr, /127\.0\.0\.1:1/)
+	})
+
+	test('puts the machine-readable answer on stdout under --json', async () => {
+		const { code, stdout } = await cli(['status', '--json'])
+
+		assert.equal(code, 0)
+		assert.equal(JSON.parse(stdout).reachable, true)
+	})
+})
+
 // Self-hosting is the reason this exists: without it the only ways to reach another
 // server are an environment variable or --server on every space.
 describe('configure', () => {
