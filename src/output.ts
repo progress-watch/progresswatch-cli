@@ -47,9 +47,24 @@ function formatProgress(task: Task): string {
 	return parts.join('  ')
 }
 
+// Coarse on purpose: "when" is answered by an order of magnitude, and a board with a week
+// of history otherwise says only how long each thing took, never when it happened.
+function ago(iso: string): string {
+	const seconds = Math.round((Date.now() - Date.parse(iso)) / 1000)
+
+	if (seconds < 60) return 'just now'
+	if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`
+	if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`
+
+	return `${Math.floor(seconds / 86400)}d ago`
+}
+
 function statusSuffix(task: Task): string {
 	if (task.finished_at === null) return ''
-	return task.duration === null ? '  (finished)' : `  (finished in ${task.duration}s)`
+
+	const took = task.duration === null ? 'finished' : `finished in ${task.duration}s`
+
+	return `  (${took}, ${ago(task.finished_at)})`
 }
 
 export function formatTask(task: Task, indent = ''): string {
