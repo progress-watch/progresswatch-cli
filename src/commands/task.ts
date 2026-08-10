@@ -1,4 +1,4 @@
-import { ApiError, createTask, getSpace, getTask, updateTask } from '../api.js'
+import { ApiError, createTask, getSpace, getTask, type Task, updateTask } from '../api.js'
 import { readConfig, resolveSpace, serverForSpace } from '../config.js'
 import { formatTask, info, json, out } from '../output.js'
 
@@ -102,6 +102,18 @@ export async function taskDone(uuid: string, asJson: boolean): Promise<void> {
 	}
 }
 
+// The same order Tasks::PrepareForDashboard renders: whatever is still running on top,
+// newest first in both groups. The API keeps creation order for every client, so a space
+// with a year of history opened on its oldest task.
+//
+// Children are left alone — they are the steps of one job, and reading them backwards is
+// reading the job backwards. --json is untouched too: it is the server's payload verbatim.
+function order(tasks: Task[]): Task[] {
+	const [active, finished] = [tasks.filter((t) => !t.finished_at), tasks.filter((t) => t.finished_at)]
+
+	return [...active.reverse(), ...finished.reverse()]
+}
+
 export async function taskList(asJson: boolean): Promise<void> {
 	const { server, space } = requireSpace()
 	const result = await getSpace(server, space)
@@ -118,7 +130,7 @@ export async function taskList(asJson: boolean): Promise<void> {
 
 	info(`${result.title ?? space}  (${server})`)
 	info()
-	for (const task of result.tasks) {
+	for (const task of order(result.tasks)) {
 		info(formatTask(task, '  '))
 		info()
 	}

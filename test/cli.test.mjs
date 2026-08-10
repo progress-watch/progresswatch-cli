@@ -140,6 +140,22 @@ describe('scriptability', () => {
 		assert.equal(parsed.tasks[0].title, 'Backup')
 	})
 
+	test('lists the newest first, and what is still running above what is finished', async () => {
+		const { config } = await freshSpace()
+		const first = (await cli(['new', 'First'], { config })).stdout.trim()
+		await cli(['new', 'Second'], { config })
+		const third = (await cli(['new', 'Third'], { config })).stdout.trim()
+		await cli(['done', first], { config })
+		await cli(['done', third], { config })
+
+		const { stdout, stderr } = await cli(['list'], { config })
+
+		assert.equal(stdout, '')
+		const order = ['Second', 'Third', 'First'].map((title) => stderr.indexOf(title))
+		assert.ok(order.every((at) => at !== -1), stderr)
+		assert.deepEqual(order, [...order].sort((a, b) => a - b), stderr)
+	})
+
 	test('exits non-zero when the server rejects the request', async () => {
 		const { config } = await freshSpace()
 		const { code, stderr } = await cli(['show', 'does-not-exist'], { config })
