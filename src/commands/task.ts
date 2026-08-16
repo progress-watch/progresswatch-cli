@@ -1,6 +1,8 @@
-import { ApiError, createTask, getSpace, getTask, type Task, updateTask } from '../api.js'
+import { ApiError, createTask, getSpace, getTask, type Task, updateTask, type Window } from '../api.js'
 import { readConfig, resolveSpace, serverForSpace } from '../config.js'
 import { formatTask, info, json, out } from '../output.js'
+
+export const DEFAULT_LIST = 20
 
 export function requireSpace(): { server: string; space: string } {
 	const config = readConfig()
@@ -114,9 +116,13 @@ function order(tasks: Task[]): Task[] {
 	return [...active.reverse(), ...finished.reverse()]
 }
 
-export async function taskList(asJson: boolean): Promise<void> {
+// The default applies to the rendering and not to --json: stdout is the machine
+// contract, and a script that piped the whole space yesterday must not silently get
+// twenty tasks today.
+export async function taskList(asJson: boolean, window: Window): Promise<void> {
 	const { server, space } = requireSpace()
-	const result = await getSpace(server, space)
+	const limit = window.limit ?? (asJson ? undefined : DEFAULT_LIST)
+	const result = await getSpace(server, space, { ...window, limit })
 
 	if (asJson) {
 		json(result)

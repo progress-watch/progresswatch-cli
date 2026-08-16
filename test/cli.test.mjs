@@ -156,6 +156,48 @@ describe('scriptability', () => {
 		assert.deepEqual(order, [...order].sort((a, b) => a - b), stderr)
 	})
 
+	test('shows the newest few by default, and the whole space to a pipe', async () => {
+		const { config } = await freshSpace()
+		for (let index = 0; index < 3; index++) await cli(['new', `Task ${index}`], { config })
+
+		const limited = await cli(['list', '--limit', '2'], { config })
+		assert.match(limited.stderr, /Task 2/)
+		assert.doesNotMatch(limited.stderr, /Task 0/)
+
+		const piped = await cli(['list', '--json'], { config })
+		assert.equal(JSON.parse(piped.stdout).tasks.length, 3)
+	})
+
+	test('pages both ways from a created_at it was given', async () => {
+		const { config } = await freshSpace()
+		for (let index = 0; index < 3; index++) await cli(['new', `Task ${index}`], { config })
+
+		const all = JSON.parse((await cli(['list', '--json'], { config })).stdout).tasks
+		const middle = all[1].created_at
+
+		const older = await cli(['list', '--json', '--before', middle], { config })
+		assert.deepEqual(
+			JSON.parse(older.stdout).tasks.map((t) => t.title),
+			['Task 0'],
+		)
+
+		const newer = await cli(['list', '--json', '--after', middle], { config })
+		assert.deepEqual(
+			JSON.parse(newer.stdout).tasks.map((t) => t.title),
+			['Task 2'],
+		)
+	})
+
+	test('refuses a limit that is not a count, without touching stdout', async () => {
+		const { config } = await freshSpace()
+
+		const { stdout, stderr, code } = await cli(['list', '--limit', '0'], { config })
+
+		assert.equal(code, 1)
+		assert.equal(stdout, '')
+		assert.match(stderr, /whole number/)
+	})
+
 	test('exits non-zero when the server rejects the request', async () => {
 		const { config } = await freshSpace()
 		const { code, stderr } = await cli(['show', 'does-not-exist'], { config })

@@ -113,8 +113,14 @@ export function createSpace(server: string, title?: string, icon?: string) {
 }
 
 
-export function getSpace(server: string, spaceUuid: string) {
-	return request<Space>(server, 'GET', `/spaces/${spaceUuid}`)
+export type Window = { limit?: number; before?: string; after?: string }
+
+export function getSpace(server: string, spaceUuid: string, window: Window = {}) {
+	const query = new URLSearchParams(
+		Object.entries(window).flatMap(([key, value]) => (value === undefined ? [] : [[key, String(value)]])),
+	).toString()
+
+	return request<Space>(server, 'GET', `/spaces/${spaceUuid}${query && `?${query}`}`)
 }
 
 export function createTask(

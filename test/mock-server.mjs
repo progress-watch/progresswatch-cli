@@ -54,7 +54,8 @@ export async function startMockServer() {
 			const fail = failWhen?.({ method: req.method, url: req.url ?? '', payload })
 			if (fail) return send(fail, { error: 'Deliberate failure' })
 
-			const url = req.url ?? ''
+			const url = (req.url ?? '').split('?')[0]
+			const query = new URLSearchParams((req.url ?? '').split('?')[1] ?? '')
 
 			if (req.method === 'POST' && url === '/spaces') {
 				const space = { uuid: randomUUID(), title: payload.title ?? null, icon: payload.icon ?? null }
@@ -99,7 +100,16 @@ export async function startMockServer() {
 				const top = [...tasks.values()].filter(
 					(t) => t.space_uuid === space.uuid && t.parent_uuid === null,
 				)
-				return send(200, { ...space, tasks: top.map(snapshot) })
+				// The real server: cursors are exclusive, and a limit counts back from the
+				// newest unless after moves it forward. Creation order either way.
+				const before = query.get('before')
+				const after = query.get('after')
+				const limit = query.get('limit')
+				let windowed = top
+				if (before) windowed = windowed.filter((t) => t.created_at < before)
+				if (after) windowed = windowed.filter((t) => t.created_at > after)
+				if (limit) windowed = after ? windowed.slice(0, Number(limit)) : windowed.slice(-Number(limit))
+				return send(200, { ...space, tasks: windowed.map(snapshot) })
 			}
 
 			match = url.match(/^\/tasks\/([^/]+)$/)

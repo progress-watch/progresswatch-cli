@@ -16,6 +16,12 @@ function number(value: string): number {
 	return parsed
 }
 
+function count(value: string): number {
+	const parsed = Number(value)
+	if (!Number.isInteger(parsed) || parsed < 1) throw new InvalidArgumentError(`expected a whole number of 1 or more, got "${value}"`)
+	return parsed
+}
+
 function collectValues(pair: string, previous: Record<string, string | number | boolean>) {
 	const index = pair.indexOf('=')
 	if (index < 1) throw new InvalidArgumentError(`expected key=value, got "${pair}"`)
@@ -238,13 +244,21 @@ examples(
 	program
 		.command('list')
 		.description('Tasks in the current space, with their progress')
+		.addOption(new Option('--limit <count>', 'How many to show, newest first. 20 by default, all with --json').argParser(count))
+		.addOption(new Option('--before <timestamp>', 'Only tasks created before this instant. Page back with a created_at'))
+		.addOption(new Option('--after <timestamp>', 'Only tasks created after this instant. What is new since a created_at'))
 		.addOption(jsonOption('the space and its tasks'))
 		.addOption(spaceOption())
-		.action((options: { json: boolean; space?: string }) => {
+		.action((options: { json: boolean; space?: string; limit?: number; before?: string; after?: string }) => {
 			applySpace(options)
-			return taskList(options.json)
+			return taskList(options.json, { limit: options.limit, before: options.before, after: options.after })
 		}),
-	['progresswatch list', "progresswatch list --json | jq -r '.tasks[] | select(.finished_at == null) | .title'"],
+	[
+		'progresswatch list',
+		'progresswatch list --limit 5',
+		'progresswatch list --after 2026-08-16T18:12:01.999158Z',
+		"progresswatch list --json | jq -r '.tasks[] | select(.finished_at == null) | .title'",
+	],
 )
 
 examples(

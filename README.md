@@ -54,7 +54,7 @@ progresswatch new <title> [--parent <uuid>]  create task, print uuid
 progresswatch update <uuid> [--current N] [--end N] [--values k=v ...]
 progresswatch start <uuid>                   mark task running, before it can count
 progresswatch done <uuid>                    mark task finished
-progresswatch list                           tasks in the default space
+progresswatch list [--limit --before --after] tasks in the default space, newest 20 by default
 progresswatch show <uuid>                    task detail with children
 
 progresswatch run <command>                  run a command and track it
