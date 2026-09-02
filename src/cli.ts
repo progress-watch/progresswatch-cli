@@ -178,12 +178,8 @@ examples(
 		.command('update <uuid>')
 		.description('Report progress. Every call replaces the whole state, so send all of it each time')
 		.addOption(new Option('--current <n>', 'How much is done. A count, never a percentage').argParser(number))
-		.addOption(new Option('--end <n>', 'How much there is in total. May change between calls').argParser(number))
-		.addOption(
-			new Option('--values <key=value>', 'Flat extras, repeatable. A log key holds one line, the latest')
-				.argParser(collectValues)
-				.default({}),
-		)
+		.addOption(new Option('--end <n>', 'The total. May change between calls; omit it to count with no bar').argParser(number))
+		.addOption(new Option('--values <key=value>', 'Flat extras, repeatable. A log key holds one line, the latest').argParser(collectValues).default({}))
 		.addOption(new Option('--done', 'Finish the task in the same call').default(false))
 		.addOption(jsonOption('the task'))
 		.addOption(spaceOption())
@@ -244,7 +240,7 @@ examples(
 	program
 		.command('list')
 		.description('Tasks in the current space, with their progress')
-		.addOption(new Option('--limit <count>', 'How many to show, newest first. 20 by default, all with --json').argParser(count))
+		.addOption(new Option('--limit <count>', 'How many to show. Unfinished first, then the newest finished. 20 by default, all with --json').argParser(count))
 		.addOption(new Option('--before <timestamp>', 'Only tasks created before this instant. Page back with a created_at'))
 		.addOption(new Option('--after <timestamp>', 'Only tasks created after this instant. What is new since a created_at'))
 		.addOption(jsonOption('the space and its tasks'))

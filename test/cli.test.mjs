@@ -156,6 +156,37 @@ describe('scriptability', () => {
 		assert.deepEqual(order, [...order].sort((a, b) => a - b), stderr)
 	})
 
+	test('keeps a long-running task in view however much has finished since', async () => {
+		const { config } = await freshSpace()
+		await cli(['new', 'Long crawl'], { config })
+		for (let index = 0; index < 3; index++) {
+			const uuid = (await cli(['new', `Task ${index}`], { config })).stdout.trim()
+			await cli(['done', uuid], { config })
+		}
+
+		const { stderr } = await cli(['list', '--limit', '2'], { config })
+
+		assert.match(stderr, /Long crawl/)
+		assert.doesNotMatch(stderr, /Task 0/)
+	})
+
+	test('does not double the list against a server that has never heard of state', async () => {
+		const { config } = await freshSpace()
+		await cli(['new', 'Backup'], { config })
+		const restore = (await cli(['new', 'Restore'], { config })).stdout.trim()
+		await cli(['done', restore], { config })
+
+		server.ignoreState(true)
+		try {
+			const { stderr } = await cli(['list'], { config })
+
+			assert.equal(stderr.match(/Backup/g).length, 1)
+			assert.equal(stderr.match(/Restore/g).length, 1)
+		} finally {
+			server.ignoreState(false)
+		}
+	})
+
 	test('shows the newest few by default, and the whole space to a pipe', async () => {
 		const { config } = await freshSpace()
 		for (let index = 0; index < 3; index++) await cli(['new', `Task ${index}`], { config })

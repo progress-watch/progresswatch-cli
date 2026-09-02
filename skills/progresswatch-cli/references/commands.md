@@ -237,7 +237,8 @@ time does not move and no second notification is sent.
 
 ## `progresswatch list`
 
-Every task in the default space, children nested under parents.
+The default space's tasks, children nested under parents. Anything still running comes
+first, then the newest finished; `--limit` caps the whole list and defaults to 20.
 
 ```bash
 progresswatch list

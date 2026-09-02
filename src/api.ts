@@ -112,8 +112,7 @@ export function createSpace(server: string, title?: string, icon?: string) {
 	return request<SpaceSummary>(server, 'POST', '/spaces', { title, icon })
 }
 
-
-export type Window = { limit?: number; before?: string; after?: string }
+export type Window = { limit?: number; before?: string; after?: string; state?: 'active' | 'finished' }
 
 export function getSpace(server: string, spaceUuid: string, window: Window = {}) {
 	const query = new URLSearchParams(

@@ -1,4 +1,4 @@
-import { ApiError, createTask, getSpace, getTask, type Task, updateTask, type Window } from '../api.js'
+import { ApiError, createTask, getSpace, getTask, updateTask, type Window } from '../api.js'
 import { readConfig, resolveSpace, serverForSpace } from '../config.js'
 import { formatTask, info, json, out } from '../output.js'
 
@@ -104,39 +104,37 @@ export async function taskDone(uuid: string, asJson: boolean): Promise<void> {
 	}
 }
 
-// The same order Tasks::PrepareForDashboard renders: whatever is still running on top,
-// newest first in both groups. The API keeps creation order for every client, so a space
-// with a year of history opened on its oldest task.
-//
-// Children are left alone — they are the steps of one job, and reading them backwards is
-// reading the job backwards. --json is untouched too: it is the server's payload verbatim.
-function order(tasks: Task[]): Task[] {
-	const [active, finished] = [tasks.filter((t) => !t.finished_at), tasks.filter((t) => t.finished_at)]
-
-	return [...active.reverse(), ...finished.reverse()]
-}
-
 // The default applies to the rendering and not to --json: stdout is the machine
 // contract, and a script that piped the whole space yesterday must not silently get
 // twenty tasks today.
 export async function taskList(asJson: boolean, window: Window): Promise<void> {
 	const { server, space } = requireSpace()
-	const limit = window.limit ?? (asJson ? undefined : DEFAULT_LIST)
-	const result = await getSpace(server, space, { ...window, limit })
 
 	if (asJson) {
-		json(result)
+		json(await getSpace(server, space, window))
 		return
 	}
 
-	if (result.tasks.length === 0) {
-		info(`No tasks in "${result.title ?? space}".`)
+	const limit = window.limit ?? DEFAULT_LIST
+	const [active, finished] = await Promise.all([
+		getSpace(server, space, { ...window, limit, state: 'active' }),
+		getSpace(server, space, { ...window, limit, state: 'finished' }),
+	])
+
+	const tasks = [
+		...active.tasks.filter((task) => !task.finished_at).reverse(),
+		...finished.tasks.filter((task) => task.finished_at).reverse(),
+	].slice(0, limit)
+
+	if (tasks.length === 0) {
+		info(`No tasks in "${active.title ?? space}".`)
 		return
 	}
 
-	info(`${result.title ?? space}  (${server})`)
+	info(`${active.title ?? space}  (${server})`)
 	info()
-	for (const task of order(result.tasks)) {
+
+	for (const task of tasks) {
 		info(formatTask(task, '  '))
 		info()
 	}

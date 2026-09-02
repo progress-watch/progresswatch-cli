@@ -36,6 +36,8 @@ export async function startMockServer() {
 
 	// Returns a status to fail with, or anything falsy to let the request through.
 	let failWhen = null
+	// A server from before the state parameter existed, which drops it as unpermitted.
+	let ignoreState = false
 
 	const server = createServer((req, res) => {
 		let body = ''
@@ -105,7 +107,10 @@ export async function startMockServer() {
 				const before = query.get('before')
 				const after = query.get('after')
 				const limit = query.get('limit')
+				const wanted = ignoreState ? null : query.get('state')
 				let windowed = top
+				if (wanted === 'active') windowed = windowed.filter((t) => !t.finished_at)
+				if (wanted === 'finished') windowed = windowed.filter((t) => t.finished_at)
 				if (before) windowed = windowed.filter((t) => t.created_at < before)
 				if (after) windowed = windowed.filter((t) => t.created_at > after)
 				if (limit) windowed = after ? windowed.slice(0, Number(limit)) : windowed.slice(-Number(limit))
@@ -156,6 +161,9 @@ export async function startMockServer() {
 		state,
 		failWhen: (predicate) => {
 			failWhen = predicate
+		},
+		ignoreState: (value) => {
+			ignoreState = value
 		},
 		close: () => new Promise((resolve) => server.close(resolve)),
 	}
