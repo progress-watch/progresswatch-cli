@@ -36,7 +36,6 @@ export async function startMockServer() {
 
 	// Returns a status to fail with, or anything falsy to let the request through.
 	let failWhen = null
-	// A server from before the state parameter existed, which drops it as unpermitted.
 	let ignoreState = false
 
 	const server = createServer((req, res) => {
@@ -123,7 +122,6 @@ export async function startMockServer() {
 				if (!task) return send(404, { error: 'Task not found' })
 
 				if (req.method === 'PUT') {
-					// Full overwrite: anything omitted is gone, not preserved.
 					const current = payload.current ?? null
 					const end = payload.end ?? null
 					state.set(task.uuid, {

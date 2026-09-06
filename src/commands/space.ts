@@ -33,13 +33,10 @@ export async function spaceNew(
 
 	const where = local ? `the space for ${directory}` : 'the default'
 	info(`Created space "${space.title ?? 'untitled'}" on ${server} and made it ${where}.`)
-	// The QR stays in connect: twenty lines of terminal on every space new, in CI too.
 	info(`Watch it:  ${spaceLink(server, space.uuid)}`)
 	info('On a phone: progresswatch connect  (same link, as a QR to scan)')
 }
 
-// Local knowledge only. There is no endpoint for this and there should not be:
-// without accounts the server cannot know which spaces are yours.
 export function spaceList(asJson: boolean): void {
 	const config = readConfig()
 	const bound = spaceForDirectory(config)
@@ -64,10 +61,6 @@ export function spaceList(asJson: boolean): void {
 	if (bound) info(`\n* bound to ${process.cwd()}`)
 }
 
-// A uuid this machine has never seen is legitimate: someone shared it. --server is how
-// that uuid gets the right host recorded against it — without it a self-hosted space
-// would be filed under the default server and every later command would talk to the
-// wrong machine.
 export function spaceUse(uuid: string, server: string | undefined, local: boolean): void {
 	const config: Config = readConfig()
 	const existing = config.spaces.find((entry) => entry.uuid === uuid)

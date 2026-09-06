@@ -8,8 +8,6 @@ export type SpaceEntry = {
 	uuid: string
 	title?: string
 	icon?: string
-	// Resolved once when the space was added. Never turn this into a live lookup of
-	// the default: changing the default would silently repoint existing spaces.
 	server: string
 }
 
@@ -17,9 +15,6 @@ export type Config = {
 	server?: string
 	space?: string
 	spaces: SpaceEntry[]
-	// Directory bindings live here rather than in a file inside the project, the way
-	// git's includeIf does: a space uuid is a credential, and a per-project file is the
-	// one that gets committed.
 	paths?: Record<string, string>
 }
 
@@ -32,8 +27,6 @@ export function readConfig(): Config {
 		const parsed = JSON.parse(readFileSync(configPath(), 'utf8')) as Partial<Config>
 		return { ...parsed, spaces: parsed.spaces ?? [] }
 	} catch {
-		// Must not throw: CI runs from environment variables alone, with no config
-		// file on disk.
 		return { spaces: [] }
 	}
 }
@@ -55,8 +48,6 @@ export function resolveSpace(config: Config = readConfig()): string | undefined 
 	return process.env.PROGRESSWATCH_SPACE || spaceForDirectory(config) || config.space
 }
 
-// The longest binding that is a parent of the working directory wins, so a binding on a
-// subdirectory overrides one on the repository above it.
 export function spaceForDirectory(config: Config, from: string = process.cwd()): string | undefined {
 	const bindings = Object.entries(config.paths ?? {})
 		.filter(([path]) => from === path || from.startsWith(`${path}/`))

@@ -22,8 +22,6 @@ after(async () => {
 	rmSync(home, { recursive: true, force: true })
 })
 
-// Spawns the built binary rather than importing it, which is the only way the
-// stream split and exit codes are tested for real.
 function cli(args, options = {}) {
 	return new Promise((resolve) => {
 		const env = {
@@ -73,9 +71,6 @@ describe('scriptability', () => {
 		assert.doesNotMatch(stdout, /\/s\//)
 	})
 
-	// Adding a shared uuid is the whole reason --server exists: without it a self-hosted
-	// space is filed under the default host and every later command talks to the wrong
-	// machine. Run without PROGRESSWATCH_SERVER so the flag is the only thing deciding.
 	test('space use records the server it was told, not the default', async () => {
 		const config = join(mkdtempSync(join(tmpdir(), 'pw-use-')), 'rc.json')
 		const uuid = '00000000-1111-2222-3333-444444444444'
@@ -293,8 +288,6 @@ describe('config', () => {
 		assert.notEqual(other.space, space)
 	})
 
-	// The point of storing a server per space: one cloud space and two self-hosted ones
-	// at the same time has to be normal, not a mode switch.
 	test('reaches each space on its own server, with no global setting involved', async () => {
 		const elsewhere = await startMockServer()
 		const config = join(mkdtempSync(join(tmpdir(), 'pw-multi-')), 'rc.json')
@@ -306,12 +299,10 @@ describe('config', () => {
 		const before = elsewhere.requests.length
 		const task = (await cli(['new', 'Over there', '--space', there], { config, noServerEnv: true })).stdout.trim()
 
-		// Created on the other server even though the default space is the first one.
 		assert.ok(elsewhere.requests.length > before)
 		assert.ok(elsewhere.tasks.has(task))
 		assert.ok(!server.tasks.has(task))
 
-		// And a task command directed at that space follows it there too.
 		await cli(['update', task, '--current', '5', '--end', '10', '--space', there], {
 			config,
 			noServerEnv: true,
@@ -438,8 +429,6 @@ describe('rendering', () => {
 	})
 })
 
-// The one command that answers rather than throws: "no space selected" is the diagnosis,
-// so it prints it and then carries it in the exit code.
 describe('status', () => {
 	test('reports the space, its server, and the health of that server', async () => {
 		const { code, stderr } = await cli(['status'])
@@ -481,11 +470,7 @@ describe('status', () => {
 	})
 })
 
-// Self-hosting is the reason this exists: without it the only ways to reach another
-// server are an environment variable or --server on every space.
 describe('configure', () => {
-	// A self-hoster who runs `space new` first creates the space in the cloud and finds
-	// out when the dashboard stays empty, so configure is named before it.
 	test('the no-space error offers configure before creating anything', async () => {
 		const config = join(mkdtempSync(join(tmpdir(), 'pw-empty-')), 'rc.json')
 
@@ -519,8 +504,6 @@ describe('configure', () => {
 		assert.throws(() => readFileSync(config, 'utf8'))
 	})
 
-	// "Why is it talking to the wrong host" is almost always a variable nobody remembers
-	// exporting, so the listing names it.
 	test('--list says when an environment variable is doing the deciding', async () => {
 		const { config } = await freshSpace()
 
@@ -533,8 +516,6 @@ describe('configure', () => {
 })
 
 describe('connect', () => {
-	// An https link and not a custom scheme: the phone client is the web app, so this has
-	// to open with nothing installed.
 	test('prints a link to the space on its own server', async () => {
 		const { config, space } = await freshSpace()
 
@@ -582,7 +563,6 @@ describe('run', () => {
 		const values = server.state.get(task.uuid).values
 		assert.equal(values.status, 'failed')
 		assert.equal(values.exit_code, 3)
-		// The server has no concept of failure, so a failed run is still "done".
 		assert.ok(task.finished_at)
 	})
 
@@ -608,7 +588,6 @@ describe('run', () => {
 		assert.equal(puts[1].payload.done, true)
 	})
 
-	// Deliberate: a six-hour job that reports nowhere is worse than failing now.
 	test('refuses to start the command if the task cannot be created', async () => {
 		const { code, stdout, stderr } = await cli(['run', 'echo survived'], {
 			server: 'http://127.0.0.1:1',
@@ -620,7 +599,6 @@ describe('run', () => {
 		assert.equal(stdout, '')
 	})
 
-	// The opposite rule once it is running.
 	test('keeps going when a progress report fails mid-run', async () => {
 		const { config } = await freshSpace()
 		const task = (await cli(['new', 'placeholder'], { config })).stdout.trim()
@@ -693,8 +671,6 @@ describe('help', () => {
 		assert.match(stderr, /run \[options\] <command\.\.\.>/)
 	})
 
-	// Every command carries its own examples, which is the whole reason for the help
-	// living beside the parser rather than in a string of its own.
 	test('a subcommand documents itself, examples included', async () => {
 		const { stdout, stderr, code } = await cli(['update', '--help'])
 
@@ -720,9 +696,6 @@ describe('help', () => {
 	})
 })
 
-// Bindings live in the global file, keyed by directory, the way git's includeIf does.
-// A file inside the project would be the one that gets committed, and a space uuid is a
-// credential.
 describe('a space bound to a directory', () => {
 	async function bound() {
 		const { config, space: fallback } = await freshSpace()
@@ -769,8 +742,6 @@ describe('a space bound to a directory', () => {
 		assert.equal(JSON.parse(stdout).uuid, inner)
 	})
 
-	// CI sets the variable and must not be second-guessed by whatever directory the
-	// checkout happens to sit in.
 	test('PROGRESSWATCH_SPACE still wins', async () => {
 		const { config, project, fallback } = await bound()
 
@@ -783,8 +754,6 @@ describe('a space bound to a directory', () => {
 		assert.equal(JSON.parse(stdout).uuid, fallback)
 	})
 
-	// Creating and binding in one step, because the two-step form left a window where a
-	// fresh space had silently become the global default.
 	test('space new --local binds without touching the default', async () => {
 		const { config, space: fallback } = await freshSpace()
 		const project = mkdtempSync(join(tmpdir(), 'pw-project-'))

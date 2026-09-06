@@ -24,8 +24,6 @@ export async function configure(options: { server?: string; list: boolean; asJso
 
 		if (options.asJson) return json(current)
 
-		// Naming the override matters more than the value: "why is it talking to the wrong
-		// host" is almost always an environment variable nobody remembers exporting.
 		const from = (variable: string) => (process.env[variable] ? `  (from ${variable})` : '')
 
 		info(`Server:    ${current.server}${from('PROGRESSWATCH_SERVER')}`)

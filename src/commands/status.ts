@@ -22,8 +22,6 @@ async function check(server: string): Promise<Partial<Report>> {
 	}
 }
 
-// A diagnostic answers rather than throws — "no space selected" is the diagnosis, not a
-// crash. The exit code still carries it, so `progresswatch status && ./deploy` works.
 export async function status(options: { asJson: boolean }): Promise<void> {
 	const config = readConfig()
 	const space = resolveSpace(config)
@@ -49,8 +47,6 @@ export async function status(options: { asJson: boolean }): Promise<void> {
 }
 
 function print(report: Report): void {
-	// Naming the override matters more than the value: "why is it talking to the wrong
-	// host" is almost always an environment variable nobody remembers exporting.
 	const from = (variable: string) => (process.env[variable] ? `  (from ${variable})` : '')
 
 	if (!report.space) {

@@ -1,7 +1,5 @@
 import type { Task } from './api.js'
 
-// out() is stdout and carries machine-consumable output only; info() is stderr and
-// carries everything a human reads. Using console.log anywhere breaks that split.
 export function out(text: string): void {
 	process.stdout.write(text.endsWith('\n') ? text : `${text}\n`)
 }
@@ -47,8 +45,6 @@ function formatProgress(task: Task): string {
 	return parts.join('  ')
 }
 
-// Coarse on purpose: "when" is answered by an order of magnitude, and a board with a week
-// of history otherwise says only how long each thing took, never when it happened.
 function ago(iso: string): string {
 	const seconds = Math.round((Date.now() - Date.parse(iso)) / 1000)
 

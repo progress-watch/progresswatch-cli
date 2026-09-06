@@ -34,14 +34,10 @@ function collectValues(pair: string, previous: Record<string, string | number | 
 	return { ...previous, [key]: parsed }
 }
 
-// Examples belong to the command they document, so `--help` on one subcommand is enough
-// to use it. An agent reads that and nothing else.
 function examples(command: Command, lines: string[]): Command {
 	return command.addHelpText('after', `\nExamples:\n${lines.map((line) => `  ${line}`).join('\n')}`)
 }
 
-// --space is exactly PROGRESSWATCH_SPACE for one invocation. Setting it here keeps one
-// resolution path instead of threading an override through every command.
 function applySpace(options: { space?: string }): void {
 	if (options.space) process.env.PROGRESSWATCH_SPACE = options.space
 }
@@ -60,8 +56,6 @@ const program = new Command()
 	.version(VERSION, '-v, --version')
 	.enablePositionalOptions()
 	.showHelpAfterError('Run with --help to see the options.')
-	// Commander writes help and version to stdout. stdout is reserved for machine output,
-	// so both go to stderr like everything else a person reads.
 	.configureOutput({ writeOut: (text) => process.stderr.write(text) })
 	.addHelpText(
 		'after',

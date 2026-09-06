@@ -3,7 +3,6 @@ import { COMPLETION_RETRY_DELAYS, createTask, updateTask } from '../api.js'
 import { info } from '../output.js'
 import { requireSpace } from './task.js'
 
-// Without this a run longer than the server's inactivity TTL would expire mid-flight.
 const HEARTBEAT_MS = 30_000
 
 type RunOptions = { title?: string; parent?: string }
@@ -21,8 +20,6 @@ export async function run(command: string[], options: RunOptions): Promise<never
 	const startedAt = Date.now()
 	const running = { current: 0, end: 1, values: { status: 'running', command: command.join(' ') } }
 
-	// Swallows on purpose: once the command is running, a reporting failure must not
-	// take it down.
 	const report = async (payload: Parameters<typeof updateTask>[2], delays?: number[]) => {
 		try {
 			await updateTask(server, task.uuid, payload, delays)
@@ -44,8 +41,6 @@ export async function run(command: string[], options: RunOptions): Promise<never
 	}, HEARTBEAT_MS)
 	heartbeat.unref()
 
-	// One positional is a shell command line; several are an argv vector run without
-	// a shell.
 	const [head, ...rest] = command
 	const child =
 		command.length === 1
@@ -72,7 +67,6 @@ export async function run(command: string[], options: RunOptions): Promise<never
 	const failed = exitCode !== 0 || signal !== null
 	const elapsed = Math.round((Date.now() - startedAt) / 1000)
 
-	// The server has no concept of failure, only done, so failure travels in `values`.
 	const reported = await report(
 		{
 			current: 1,
@@ -98,7 +92,6 @@ export async function run(command: string[], options: RunOptions): Promise<never
 			: `progresswatch: "${label}" finished in ${elapsed}s`,
 	)
 
-	// Not an error: the exit code belongs to the wrapped command.
 	if (!reported) {
 		info(`progresswatch: the server was not told. "${label}" stays open until its data expires.`)
 	}

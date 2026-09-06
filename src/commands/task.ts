@@ -8,8 +8,6 @@ export function requireSpace(): { server: string; space: string } {
 	const config = readConfig()
 	const space = resolveSpace(config)
 	if (!space) {
-		// configure comes first: a self-hoster who runs `space new` without it creates the
-		// space on progress.watch and only finds out when the dashboard is empty.
 		throw new Error(
 			'no space selected.\n' +
 				'  Self-hosting?  progresswatch configure --server https://your.host\n' +
@@ -22,9 +20,6 @@ export function requireSpace(): { server: string; space: string } {
 	return { server: serverForSpace(config, space), space }
 }
 
-// A server only ever comes from a space entry, never from a global default. Commands
-// addressed by task uuid therefore need a space to say which server to talk to — use
-// --space to point them at one other than the default.
 async function onTask<T>(uuid: string, call: (server: string) => Promise<T>): Promise<T> {
 	const { server, space } = requireSpace()
 
@@ -81,9 +76,6 @@ export async function taskUpdate(
 	}
 }
 
-// A step with nothing to count still has something to say: that it began. Without this
-// it sits at "waiting for data", which a watcher cannot tell apart from a reporter that
-// died before its first write.
 export async function taskStart(uuid: string, asJson: boolean): Promise<void> {
 	const task = await onTask(uuid, (server) => updateTask(server, uuid, { current: 0, end: 1 }))
 
@@ -104,9 +96,6 @@ export async function taskDone(uuid: string, asJson: boolean): Promise<void> {
 	}
 }
 
-// The default applies to the rendering and not to --json: stdout is the machine
-// contract, and a script that piped the whole space yesterday must not silently get
-// twenty tasks today.
 export async function taskList(asJson: boolean, window: Window): Promise<void> {
 	const { server, space } = requireSpace()
 
