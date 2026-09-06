@@ -9,7 +9,7 @@ description: >
 license: MIT
 metadata:
   author: Progress Watch
-  version: "0.1.0"
+  version: "0.0.1"
   homepage: https://progress.watch
   source: https://github.com/progress-watch/progresswatch-cli
   openclaw:

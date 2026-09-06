@@ -696,6 +696,24 @@ describe('help', () => {
 	})
 })
 
+describe('version', () => {
+	const { version } = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'))
+
+	test('is the one the package is published as', async () => {
+		const { stdout, stderr, code } = await cli(['--version'])
+
+		assert.equal(code, 0)
+		assert.equal(stdout, '')
+		assert.equal(stderr.trim(), version)
+	})
+
+	test('is the one the skill shipped beside it declares', () => {
+		const skill = readFileSync(new URL('../skills/progresswatch-cli/SKILL.md', import.meta.url), 'utf8')
+
+		assert.ok(skill.includes(`version: "${version}"`))
+	})
+})
+
 describe('a space bound to a directory', () => {
 	async function bound() {
 		const { config, space: fallback } = await freshSpace()

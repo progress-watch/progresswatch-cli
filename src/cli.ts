@@ -8,7 +8,7 @@ import { status } from './commands/status.js'
 import { taskDone, taskList, taskNew, taskShow, taskStart, taskUpdate } from './commands/task.js'
 import { info } from './output.js'
 
-const VERSION = '0.1.0'
+declare const __VERSION__: string
 
 function number(value: string): number {
 	const parsed = Number(value)
@@ -53,7 +53,7 @@ function jsonOption(what: string): Option {
 const program = new Command()
 	.name('progresswatch')
 	.description('Report progress from anything that runs without a screen, and watch it from anywhere.')
-	.version(VERSION, '-v, --version')
+	.version(__VERSION__, '-v, --version')
 	.enablePositionalOptions()
 	.showHelpAfterError('Run with --help to see the options.')
 	.configureOutput({ writeOut: (text) => process.stderr.write(text) })
