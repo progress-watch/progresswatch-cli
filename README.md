@@ -12,8 +12,6 @@ This is the CLI. The server is at
 self-hosted with one `docker compose up`, or used hosted at
 [progress.watch](https://progress.watch).
 
----
-
 ## Sixty seconds
 
 ```bash
@@ -30,14 +28,11 @@ progresswatch space use <uuid> --server https://progress.watch
 ```
 
 Either way the choice is written to `~/.progresswatchrc` and every later command uses it.
-In CI there is no config file to write, so use the environment variables instead — see
-[Configuration](#configuration).
+CI writes no config file and uses [environment variables](#configuration) instead.
 
 `new`, `update` and `done` are what you will type most. When the process is not yours to
 change, `progresswatch run "python train.py"` wraps it instead — no counts, just a start
 and a finish, but nothing to edit.
-
----
 
 ## Commands
 
@@ -118,8 +113,6 @@ TEST=$(progresswatch new "Test" --parent $DEPLOY)
 The parent's progress is the average of its children's, so it moves on its own — you
 never update it directly. A child cannot have children.
 
----
-
 ## Using it in scripts
 
 The contract that makes this scriptable:
@@ -171,8 +164,6 @@ Wrapping a whole CI step needs no bookkeeping at all:
 ```bash
 progresswatch run --title "CI: integration suite" "bundle exec rspec"
 ```
-
----
 
 ## Configuration
 
@@ -248,8 +239,6 @@ it in a secret rather than a committed file, the way you would an API token. The
 cannot list your spaces — without accounts it has no idea which are yours — so losing the
 UUID loses the space. `~/.progresswatchrc` is worth backing up.
 
----
-
 ## Pairing your phone
 
 ```bash
@@ -268,8 +257,6 @@ on that device.
 
 Add the page to the home screen to get notifications. On iOS that is a requirement rather
 than a nicety: Safari delivers Web Push only to an installed web app.
-
----
 
 ## Using it from an AI agent
 
