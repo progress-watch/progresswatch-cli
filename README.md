@@ -110,8 +110,9 @@ BUILD=$(progresswatch new "Build" --parent $DEPLOY)
 TEST=$(progresswatch new "Test" --parent $DEPLOY)
 ```
 
-The parent's progress is the average of its children's, so it moves on its own — you
-never update it directly. A child cannot have children.
+The parent's progress is the average of its children's, so it moves on its own — never
+send it numbers. It does not finish on its own, though: `done` it once the last step is
+done, or it never notifies. A child cannot have children.
 
 ## Using it in scripts
 

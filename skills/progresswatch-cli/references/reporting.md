@@ -53,10 +53,14 @@ BUILD=$(progresswatch new "Build" --parent "$DEPLOY")
 TEST=$(progresswatch new "Test" --parent "$DEPLOY")
 ```
 
-**A parent's progress is derived from its children — never update a parent directly.**
+**A parent's progress is derived from its children — never send it numbers.**
 Its bar is the mean of its children's ratios, and its raw numbers count finished children
-out of total ("2 of 5 steps"). Any `current`/`end` you report on a parent is ignored,
-though its `values` still come through, so a parent can carry a log line of its own.
+out of total ("2 of 5 steps"). Any `current`/`end` you report on a parent is ignored in its
+bar, though its `values` still come through, so a parent can carry a log line of its own.
+
+**But nothing finishes a parent for you.** Every step turning green does not close it: call
+`done` on the parent once the last step is done, or it stays open and never notifies.
+Finishing is one-way, so it is always safe to do.
 
 A step that has reported nothing counts as zero — it has not started. A step that
 finished counts as complete even if the server has since forgotten its numbers.
@@ -141,7 +145,8 @@ progress and keeps the task alive.
 ## Completion
 
 A task completes when `current` reaches `end` (with `end` greater than zero), or when you
-run `done` / pass `--done`. Completing sends the push notification.
+run `done` / pass `--done`. Completing sends the push notification. A parent is no
+exception: it completes when you finish it, not when its last step does.
 
 An `end` of zero or missing means the denominator is unknown, so nothing can be concluded
 and the task will not auto-complete. Finish it explicitly.

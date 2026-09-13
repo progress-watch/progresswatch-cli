@@ -109,7 +109,8 @@ for step in build test ship; do
 done
 ```
 
-The parent bar moves on its own as the steps finish — never update it directly.
+The parent bar moves on its own as the steps finish, so never send it numbers — but it
+only finishes when you say so, which is what the `trap` on `$DEPLOY` is for.
 
 ## Long-running jobs
 

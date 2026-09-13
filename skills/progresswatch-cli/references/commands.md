@@ -1,13 +1,14 @@
 # Commands
 
-Global options, accepted on every command:
+Options shared across commands. Not every command takes every one —
+`progresswatch <command> --help` is always the exact list:
 
-| Option | Description |
-|---|---|
-| `--space <uuid>` | Act on this space instead of the default, for one invocation. Same effect as `PROGRESSWATCH_SPACE` |
-| `--json` | Machine-readable output on stdout for read commands |
-| `-v, --version` | Print the version |
-| `-h, --help` | Print usage |
+| Option | On | Description |
+|---|---|---|
+| `--space <uuid>` | `status`, `connect`, `new`, `update`, `start`, `done`, `list`, `show`, `run` | Act on this space instead of the default, for one invocation. Same effect as `PROGRESSWATCH_SPACE` |
+| `--json` | everything except `run`, `space use` and `space unbind` | Machine-readable output on stdout |
+| `-v, --version` | `progresswatch` itself | Print the version |
+| `-h, --help` | every command | Print usage |
 
 ---
 
@@ -48,13 +49,39 @@ Config:    ~/.progresswatchrc
 
 ---
 
+## `progresswatch status`
+
+Which space is selected, which server it lives on, which setting chose them, and whether
+that server is healthy. Exits non-zero when no space is selected, the server cannot be
+reached, or its database or Redis is down — so it works as a gate.
+
+| Option | Description |
+|---|---|
+| `--space <uuid>` | Check this space instead of the default |
+| `--json` | Print the check as JSON on stdout |
+
+```bash
+progresswatch status
+progresswatch status --json | jq -r .reachable
+progresswatch status && ./deploy
+```
+
+A missing space is an answer, not a crash: `status` prints what it found and carries the
+verdict in the exit code. When an environment variable is doing the choosing, it names it.
+
+---
+
 ## `progresswatch space new`
 
-Create a space, record it locally, and make it the default.
+Create a space, record it locally, and make it the default — or, with `--local`, the space
+for the working directory.
 
-| Argument | Description |
+| Option | Description |
 |---|---|
 | `[title]` | Optional name. Shown on the dashboard and in notifications |
+| `--icon <character>` | One character shown beside the name; an emoji reads best |
+| `--local` | Apply to the working directory instead of making it the default |
+| `--json` | Print the space as JSON on stdout |
 
 Prints the bare uuid on stdout.
 
@@ -86,7 +113,7 @@ Switch the default space, and add it if this machine has never seen it.
 |---|---|
 | `<uuid>` | Space uuid. May be one this machine has never seen — someone shared it |
 | `--server <url>` | The server that uuid lives on. Recorded against the space |
-| `--local` | Set this space for the working directory instead of globally. `--global` is the default and may be passed for symmetry |
+| `--local` | Set this space for the working directory instead of globally |
 
 ```bash
 progresswatch space use 406d45fd-f623-472a-acac-eef9b5281549
@@ -237,12 +264,20 @@ time does not move and no second notification is sent.
 
 ## `progresswatch list`
 
-The default space's tasks, children nested under parents. Anything still running comes
-first, then the newest finished; `--limit` caps the whole list and defaults to 20.
+The current space's tasks, children nested under parents. Anything still running comes
+first, then the newest finished.
+
+| Option | Description |
+|---|---|
+| `--limit <count>` | How many to render. 20 by default; `--json` returns the whole space unless you pass one |
+| `--before <timestamp>` | Only tasks created before this instant — page back with a `created_at` |
+| `--after <timestamp>` | Only tasks created after this instant — what is new since a `created_at` |
+| `--json` | The space and its tasks as JSON on stdout, as the server sent them |
 
 ```bash
 progresswatch list
-progresswatch list --json
+progresswatch list --limit 5
+progresswatch list --json --before "$OLDEST_CREATED_AT"
 progresswatch list --space "$OTHER_SPACE"
 ```
 

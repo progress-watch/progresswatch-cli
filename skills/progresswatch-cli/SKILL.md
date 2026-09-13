@@ -9,7 +9,7 @@ description: >
 license: MIT
 metadata:
   author: Progress Watch
-  version: "0.0.1"
+  version: "0.0.2"
   homepage: https://progress.watch
   source: https://github.com/progress-watch/progresswatch-cli
   openclaw:
@@ -17,7 +17,6 @@ metadata:
     requires:
       env:
         - PROGRESSWATCH_SPACE
-        - PROGRESSWATCH_SERVER
       bins:
         - progresswatch
       primaryEnv: PROGRESSWATCH_SPACE
@@ -45,7 +44,7 @@ metadata:
 ## Setup
 
 Set environment variables:
-- `PROGRESSWATCH_SPACE` — space uuid (required). Create one with `progresswatch space new "My work"`.
+- `PROGRESSWATCH_SPACE` — the space uuid to report into. `progresswatch space new "My work"` creates one and saves it as the default, so the variable is only needed where there is no config file: CI, a container, a sandbox.
 - `PROGRESSWATCH_SERVER` — server URL. Defaults to `https://progress.watch`; set it to your own host when self-hosting.
 
 The space uuid is the credential — there are no accounts. Whoever has it can read and
@@ -85,7 +84,7 @@ committed. `PROGRESSWATCH_SPACE` still wins, so CI is unaffected.
 |---|---|---|
 | 1 | **Omitting `--values` on a later update and expecting the old ones to survive** | A write is a full overwrite. Re-send every value each time, or accept them being cleared |
 | 2 | **Sending a percentage** | `--current`/`--end` are raw counts. "1200 of 50000 pages" is the point; the bar is computed |
-| 3 | **Updating a parent task** | A parent's progress is averaged from its children automatically. Update children only |
+| 3 | **Sending numbers to a parent, or never finishing it** | A parent's bar is averaged from its steps, so `--current`/`--end` on it are ignored. But nothing finishes a parent for you: `done` it once the last step is done, or it never notifies |
 | 4 | **Nesting more than one level** | `--parent` may only point at a top-level task. A child cannot have children |
 | 5 | **Piping `list` or `show` into a script** | Human output goes to stderr. Use `--json` and parse stdout |
 | 6 | **Never calling `done`** | Nothing is sent until a task completes. Finish it even when the work failed, recording the failure in `--values` |
