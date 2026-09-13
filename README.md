@@ -276,6 +276,8 @@ npm install
 npm run build      # esbuild -> dist/cli.js
 npm test           # builds, then runs the suite against an in-process mock server
 npm run typecheck
+
+PROGRESSWATCH_E2E_SERVER=http://localhost:7979 npm run test:e2e   # the same commands against a real server
 ```
 
 ## License

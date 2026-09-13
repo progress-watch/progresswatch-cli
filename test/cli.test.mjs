@@ -22,21 +22,18 @@ after(async () => {
 	rmSync(home, { recursive: true, force: true })
 })
 
-function cli(args, options = {}) {
-	return new Promise((resolve) => {
-		const env = {
-			...process.env,
-			PROGRESSWATCH_SERVER: options.server ?? server.url,
-			PROGRESSWATCH_CONFIG: options.config ?? join(home, 'rc.json'),
-			...options.env,
-		}
+function spawnCli(args, options = {}) {
+	const env = {
+		...process.env,
+		PROGRESSWATCH_SERVER: options.server ?? server.url,
+		PROGRESSWATCH_CONFIG: options.config ?? join(home, 'rc.json'),
+		...options.env,
+	}
 
-		// PROGRESSWATCH_SERVER overrides per-space servers, so tests about per-space
-		// resolution have to run without it.
-		if (options.noServerEnv) delete env.PROGRESSWATCH_SERVER
+	if (options.noServerEnv) delete env.PROGRESSWATCH_SERVER
 
-		const child = spawn(process.execPath, [CLI, ...args], { env, cwd: options.cwd })
-
+	const child = spawn(process.execPath, [CLI, ...args], { env, cwd: options.cwd })
+	const result = new Promise((resolve) => {
 		let stdout = ''
 		let stderr = ''
 		child.stdout.on('data', (d) => {
@@ -47,12 +44,27 @@ function cli(args, options = {}) {
 		})
 		child.on('close', (code) => resolve({ code, stdout, stderr }))
 	})
+
+	return { child, result }
 }
+
+const cli = (args, options) => spawnCli(args, options).result
 
 async function freshSpace() {
 	const config = join(mkdtempSync(join(tmpdir(), 'pw-space-')), 'rc.json')
 	const created = await cli(['space', 'new', 'Test space'], { config })
 	return { config, space: created.stdout.trim() }
+}
+
+async function until(check, timeout = 10_000) {
+	const deadline = Date.now() + timeout
+
+	for (;;) {
+		const value = check()
+		if (value) return value
+		if (Date.now() > deadline) throw new Error('timed out waiting for the mock to see it')
+		await new Promise((resolve) => setTimeout(resolve, 50))
+	}
 }
 
 describe('scriptability', () => {
@@ -631,6 +643,36 @@ describe('run', () => {
 
 		const task = [...server.tasks.values()].find((t) => t.title === 'echo done anyway')
 		assert.equal(task.finished_at, null)
+	})
+
+	test('a signal reaches the command, and the task still closes saying which one', async () => {
+		const { config } = await freshSpace()
+		const { child, result } = spawnCli(['run', '--title', 'Signalled run', 'sleep', '30'], { config })
+
+		const task = await until(() =>
+			[...server.tasks.values()].find(
+				(t) => t.title === 'Signalled run' && server.state.get(t.uuid)?.values.status === 'running',
+			),
+		)
+		child.kill('SIGTERM')
+
+		const { code } = await result
+		assert.equal(code, 1)
+		assert.ok(task.finished_at)
+		assert.equal(server.state.get(task.uuid).values.status, 'failed')
+		assert.equal(server.state.get(task.uuid).values.signal, 'SIGTERM')
+	})
+
+	test('--parent makes the run a step of an existing task', async () => {
+		const { config } = await freshSpace()
+		const parent = (await cli(['new', 'Run parent'], { config })).stdout.trim()
+
+		const { code } = await cli(['run', '--title', 'Run as a step', '--parent', parent, 'true'], { config })
+
+		assert.equal(code, 0)
+		const step = [...server.tasks.values()].find((t) => t.title === 'Run as a step')
+		assert.equal(step.parent_uuid, parent)
+		assert.ok(step.finished_at)
 	})
 })
 

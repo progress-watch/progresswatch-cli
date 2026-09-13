@@ -26,3 +26,35 @@ jobs:
       - run: npm ci
       - run: npm run typecheck
       - run: npm test
+
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    services:
+      redis:
+        image: redis:8-alpine
+
+      progresswatch:
+        image: progresswatch/progresswatch:latest
+        env:
+          SECRET_KEY_BASE: e2e-only-this-server-lives-for-one-job-and-holds-nothing-worth-a-secret
+          REDIS_URL: redis://redis:6379
+        ports: [ "7979:3000" ]
+        options: >-
+          --health-cmd "wget -qO- http://127.0.0.1:3000/up"
+          --health-interval 5s --health-timeout 3s --health-retries 20
+
+    env:
+      PROGRESSWATCH_E2E_SERVER: http://127.0.0.1:7979
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm ci
+      - run: npm run test:e2e
