@@ -56,17 +56,6 @@ async function freshSpace() {
 	return { config, space: created.stdout.trim() }
 }
 
-async function until(check, timeout = 10_000) {
-	const deadline = Date.now() + timeout
-
-	for (;;) {
-		const value = check()
-		if (value) return value
-		if (Date.now() > deadline) throw new Error('timed out waiting for the mock to see it')
-		await new Promise((resolve) => setTimeout(resolve, 50))
-	}
-}
-
 describe('scriptability', () => {
 	test('space new prints the bare uuid to stdout', async () => {
 		const { stdout, stderr, code } = await cli(['space', 'new', 'Production'])
@@ -647,17 +636,18 @@ describe('run', () => {
 
 	test('a signal reaches the command, and the task still closes saying which one', async () => {
 		const { config } = await freshSpace()
-		const { child, result } = spawnCli(['run', '--title', 'Signalled run', 'sleep', '30'], { config })
-
-		const task = await until(() =>
-			[...server.tasks.values()].find(
-				(t) => t.title === 'Signalled run' && server.state.get(t.uuid)?.values.status === 'running',
-			),
+		const { child, result } = spawnCli(
+			['run', '--title', 'Signalled run', process.execPath, '-e', "console.log('started'); setTimeout(() => {}, 30000)"],
+			{ config },
 		)
+
+		await new Promise((resolve) => child.stdout.on('data', (d) => String(d).includes('started') && resolve()))
 		child.kill('SIGTERM')
 
 		const { code } = await result
 		assert.equal(code, 1)
+
+		const task = [...server.tasks.values()].find((t) => t.title === 'Signalled run')
 		assert.ok(task.finished_at)
 		assert.equal(server.state.get(task.uuid).values.status, 'failed')
 		assert.equal(server.state.get(task.uuid).values.signal, 'SIGTERM')
