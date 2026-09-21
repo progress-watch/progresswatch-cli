@@ -62,6 +62,12 @@ bar, though its `values` still come through, so a parent can carry a log line of
 `done` on the parent once the last step is done, or it stays open and never notifies.
 Finishing is one-way, so it is always safe to do.
 
+**Finishing a parent stops the steps still open under it.** They are closed with the job,
+silently, keep the numbers they last reported and show as "stopped" rather than finished.
+So when a job ends early — a failure, an abort — `done` on the parent is enough; the steps
+that never finished do not hang on as "waiting". It is not a substitute for closing steps as
+they finish: a step you finish yourself reads as done, a step the job closed reads as stopped.
+
 A step that has reported nothing counts as zero — it has not started. A step that
 finished counts as complete even if the server has since forgotten its numbers.
 

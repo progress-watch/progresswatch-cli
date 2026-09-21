@@ -84,7 +84,7 @@ committed. `PROGRESSWATCH_SPACE` still wins, so CI is unaffected.
 |---|---|---|
 | 1 | **Omitting `--values` on a later update and expecting the old ones to survive** | A write is a full overwrite. Re-send every value each time, or accept them being cleared |
 | 2 | **Sending a percentage** | `--current`/`--end` are raw counts. "1200 of 50000 pages" is the point; the bar is computed |
-| 3 | **Sending numbers to a parent, or never finishing it** | A parent's bar is averaged from its steps, so `--current`/`--end` on it are ignored. But nothing finishes a parent for you: `done` it once the last step is done, or it never notifies |
+| 3 | **Sending numbers to a parent, or never finishing it** | A parent's bar is averaged from its steps, so `--current`/`--end` on it are ignored. But nothing finishes a parent for you: `done` it once the last step is done, or it never notifies. Finishing it stops any step still open, which then reads as stopped, not done |
 | 4 | **Nesting more than one level** | `--parent` may only point at a top-level task. A child cannot have children |
 | 5 | **Piping `list` or `show` into a script** | Human output goes to stderr. Use `--json` and parse stdout |
 | 6 | **Never calling `done`** | Nothing is sent until a task completes. Finish it even when the work failed, recording the failure in `--values` |

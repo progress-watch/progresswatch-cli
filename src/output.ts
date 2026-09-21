@@ -58,7 +58,7 @@ function ago(iso: string): string {
 function statusSuffix(task: Task): string {
 	if (task.finished_at === null) return ''
 
-	const took = task.duration === null ? 'finished' : `finished in ${task.duration}s`
+	const took = task.stopped ? 'stopped' : task.duration === null ? 'finished' : `finished in ${task.duration}s`
 
 	return `  (${took}, ${ago(task.finished_at)})`
 }

@@ -16,6 +16,7 @@ export type Task = {
 	created_at: string
 	finished_at: string | null
 	duration: number | null
+	stopped: boolean
 	progress: Progress | null
 	children: Task[]
 }

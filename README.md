@@ -79,7 +79,7 @@ TEST=$(progresswatch new "Test" --parent $DEPLOY)
 ```
 
 One level deep. A parent's bar averages its children, but it does not finish on its own:
-`done` it after the last step.
+`done` it after the last step. That also stops any step still open, which reads as stopped.
 
 ## Scripts
 

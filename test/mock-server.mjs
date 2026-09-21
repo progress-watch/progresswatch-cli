@@ -16,13 +16,13 @@ export async function startMockServer() {
 		let progress = own
 		if (children.length > 0) {
 			const ratios = children.map((child) => {
-				if (child.finished_at) return 1
+				if (child.finished_at && !child.stopped) return 1
 				const s = state.get(child.uuid)
 				if (!s || s.end === null || s.end === undefined || s.end <= 0) return 0
 				return Math.min(1, s.current / s.end)
 			})
 			progress = {
-				current: children.filter((c) => c.finished_at).length,
+				current: children.filter((c) => c.finished_at && !c.stopped).length,
 				end: children.length,
 				ratio: ratios.reduce((a, b) => a + b, 0) / ratios.length,
 				values: own?.values ?? {},
@@ -88,6 +88,7 @@ export async function startMockServer() {
 					created_at: new Date().toISOString(),
 					finished_at: null,
 					duration: null,
+					stopped: false,
 				}
 				tasks.set(task.uuid, task)
 				return send(201, { uuid: task.uuid })
@@ -137,6 +138,12 @@ export async function startMockServer() {
 					if (complete && !task.finished_at) {
 						task.finished_at = new Date().toISOString()
 						task.duration = 0
+						for (const child of tasks.values()) {
+							if (child.parent_uuid === task.uuid && !child.finished_at) {
+								child.finished_at = task.finished_at
+								child.stopped = true
+							}
+						}
 					}
 				}
 

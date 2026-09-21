@@ -407,6 +407,22 @@ describe('rendering', () => {
 		assert.doesNotMatch(stderr, /waiting for data/)
 	})
 
+test('calls a step its job closed stopped, not finished', async () => {
+	const { config } = await freshSpace()
+	const parent = (await cli(['new', 'Deploy'], { config })).stdout.trim()
+	const build = (await cli(['new', 'Build', '--parent', parent], { config })).stdout.trim()
+	const push = (await cli(['new', 'Push image', '--parent', parent], { config })).stdout.trim()
+	await cli(['done', build], { config })
+	await cli(['update', push, '--current', '64', '--end', '100'], { config })
+	await cli(['done', parent], { config })
+
+	const { stderr } = await cli(['show', parent], { config })
+
+	assert.match(stderr, /Build  \(finished in/)
+	assert.match(stderr, /Push image  \(stopped,/)
+	assert.match(stderr, /64\.0%/)
+})
+
 	test('nests children under their parent', async () => {
 		const { config } = await freshSpace()
 		const parent = (await cli(['new', 'Deploy'], { config })).stdout.trim()
