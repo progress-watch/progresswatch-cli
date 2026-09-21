@@ -8,6 +8,8 @@ import { status } from './commands/status.js'
 import { taskDone, taskList, taskNew, taskShow, taskStart, taskUpdate } from './commands/task.js'
 import { info } from './output.js'
 
+const HOSTED_LIMITS = { taskTitleLength: 200, taskSourceLength: 100, valuesKeyCount: 20, valuesStringLength: 1000 } as const
+
 declare const __VERSION__: string
 
 function number(value: string): number {
@@ -155,9 +157,9 @@ examples(
 examples(
 	program
 		.command('new <title>')
-		.description('Create a task and print its uuid. Call this when starting work someone might want to watch')
+		.description(`Create a task and print its uuid. Call this when starting work someone might want to watch. A title is cut at the server's limit, ${HOSTED_LIMITS.taskTitleLength} characters on progress.watch`)
 		.addOption(new Option('--parent <uuid>', 'Make this a step of an existing task. One level only'))
-		.addOption(new Option('--source <name>', 'What is reporting, e.g. crawler.py'))
+		.addOption(new Option('--source <name>', `What is reporting, e.g. crawler.py. Cut at the server's limit, ${HOSTED_LIMITS.taskSourceLength} on progress.watch`))
 		.addOption(jsonOption('the task'))
 		.addOption(spaceOption())
 		.action((title: string, options: { parent?: string; source?: string; json: boolean; space?: string }) => {
@@ -173,7 +175,7 @@ examples(
 		.description('Report progress. Every call replaces the whole state, so send all of it each time')
 		.addOption(new Option('--current <n>', 'How much is done. A count, never a percentage').argParser(number))
 		.addOption(new Option('--end <n>', 'The total. May change between calls; omit it to count with no bar').argParser(number))
-		.addOption(new Option('--values <key=value>', 'Flat extras, repeatable. A log key holds one line, the latest').argParser(collectValues).default({}))
+		.addOption(new Option('--values <key=value>', `Flat extras, repeatable. A log key holds one line, the latest. progress.watch takes ${HOSTED_LIMITS.valuesKeyCount} and cuts a value at ${HOSTED_LIMITS.valuesStringLength} characters; a server of your own may take more`).argParser(collectValues).default({}))
 		.addOption(new Option('--done', 'Finish the task in the same call').default(false))
 		.addOption(jsonOption('the task'))
 		.addOption(spaceOption())
@@ -271,7 +273,7 @@ examples(
 		.command('run <command...>')
 		.description('Run a command, track it from start to finish, and exit with its status')
 		.passThroughOptions()
-		.addOption(new Option('--title <title>', 'Task title. Defaults to the command itself'))
+		.addOption(new Option('--title <title>', `Task title, cut at the server's limit (${HOSTED_LIMITS.taskTitleLength} on progress.watch). Defaults to the command itself`))
 		.addOption(new Option('--parent <uuid>', 'Make this a step of an existing task'))
 		.addOption(spaceOption())
 		.action((command: string[], options: { title?: string; parent?: string; space?: string }) => {

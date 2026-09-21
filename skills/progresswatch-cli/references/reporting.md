@@ -62,6 +62,13 @@ bar, though its `values` still come through, so a parent can carry a log line of
 `done` on the parent once the last step is done, or it stays open and never notifies.
 Finishing is one-way, so it is always safe to do.
 
+**Lengths are capped, and longer text is cut, not refused.** On progress.watch a title keeps
+200 characters, a source 100 and a space title 100; a string in `values` keeps 1000, with an
+ellipsis as the last character wherever something was cut. `values` itself takes at most 20
+keys of at most 40 characters, and more than that is refused with 400 — a flat status line,
+not a log file. A self-hosted server allows more by default and sets its own; its
+`/openapi.json` states them.
+
 **Finishing a parent stops the steps still open under it.** They are closed with the job,
 silently, keep the numbers they last reported and show as "stopped" rather than finished.
 So when a job ends early — a failure, an abort — `done` on the parent is enough; the steps
