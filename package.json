@@ -1,6 +1,6 @@
 {
 	"name": "progresswatch",
-	"version": "0.0.2",
+	"version": "0.0.3",
 	"description": "Report progress from anything that runs without you, and watch it from anywhere",
 	"license": "MIT",
 	"homepage": "https://progress.watch",

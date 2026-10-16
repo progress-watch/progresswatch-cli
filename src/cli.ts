@@ -30,10 +30,13 @@ function collectValues(pair: string, previous: Record<string, string | number | 
 
 	const key = pair.slice(0, index)
 	const raw = pair.slice(index + 1)
-	const parsed =
-		raw === 'true' || raw === 'false' ? raw === 'true' : raw !== '' && Number.isFinite(Number(raw)) ? Number(raw) : raw
+	const parsed = raw === 'true' || raw === 'false' ? raw === 'true' : key !== 'log' && canonicalNumber(raw) ? Number(raw) : raw
 
 	return { ...previous, [key]: parsed }
+}
+
+function canonicalNumber(raw: string): boolean {
+	return Number.isFinite(Number(raw)) && String(Number(raw)) === raw
 }
 
 function examples(command: Command, lines: string[]): Command {

@@ -3,7 +3,7 @@ import { COMPLETION_RETRY_DELAYS, createTask, updateTask } from '../api.js'
 import { info } from '../output.js'
 import { requireSpace } from './task.js'
 
-const HEARTBEAT_MS = 30_000
+const HEARTBEAT_MS = Number(process.env.PROGRESSWATCH_HEARTBEAT_MS) || 30_000
 
 type RunOptions = { title?: string; parent?: string }
 
@@ -33,8 +33,9 @@ export async function run(command: string[], options: RunOptions): Promise<never
 	await report(running)
 	info(`progresswatch: tracking "${label}" as ${task.uuid}`)
 
+	let inFlight: Promise<boolean> = Promise.resolve(true)
 	const heartbeat = setInterval(() => {
-		void report({
+		inFlight = report({
 			...running,
 			values: { ...running.values, elapsed: Math.round((Date.now() - startedAt) / 1000) },
 		})
@@ -62,6 +63,7 @@ export async function run(command: string[], options: RunOptions): Promise<never
 	)
 
 	clearInterval(heartbeat)
+	await inFlight
 
 	const exitCode = code ?? 1
 	const failed = exitCode !== 0 || signal !== null

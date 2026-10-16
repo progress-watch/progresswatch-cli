@@ -52,10 +52,11 @@ async function request<T>(
 	path: string,
 	body?: unknown,
 	delays: number[] = RETRY_DELAYS,
+	accept: number[] = [],
 ): Promise<T> {
 	for (let attempt = 0; ; attempt++) {
 		try {
-			return await send<T>(server, method, path, body)
+			return await send<T>(server, method, path, body, accept)
 		} catch (error) {
 			if (attempt >= delays.length || !(error instanceof ApiError) || !retriable(error)) throw error
 			await sleep(delays[attempt] as number)
@@ -63,7 +64,7 @@ async function request<T>(
 	}
 }
 
-async function send<T>(server: string, method: string, path: string, body?: unknown): Promise<T> {
+async function send<T>(server: string, method: string, path: string, body?: unknown, accept: number[] = []): Promise<T> {
 	const url = `${server.replace(/\/+$/, '')}${path}`
 
 	let response: Response
@@ -79,7 +80,7 @@ async function send<T>(server: string, method: string, path: string, body?: unkn
 
 	const text = await response.text()
 
-	if (!response.ok) {
+	if (!response.ok && !accept.includes(response.status)) {
 		let message = `HTTP ${response.status}`
 		try {
 			const parsed = JSON.parse(text) as { error?: string }
@@ -96,7 +97,7 @@ async function send<T>(server: string, method: string, path: string, body?: unkn
 export type Health = { status: string; database: boolean; redis: boolean }
 
 export function getHealth(server: string) {
-	return request<Health>(server, 'GET', '/up', undefined, [])
+	return request<Health>(server, 'GET', '/up', undefined, [], [503])
 }
 
 export type SpaceSummary = { uuid: string; title: string | null; icon: string | null }

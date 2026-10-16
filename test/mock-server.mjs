@@ -3,6 +3,8 @@ import { randomUUID } from 'node:crypto'
 
 // Must keep mirroring the real server's semantics — full overwrite, one-level
 // nesting — or these tests stop meaning anything.
+const HEALTHY = { status: 'ok', database: true, redis: true }
+
 export async function startMockServer() {
 	const spaces = new Map()
 	const tasks = new Map()
@@ -36,7 +38,9 @@ export async function startMockServer() {
 
 	// Returns a status to fail with, or anything falsy to let the request through.
 	let failWhen = null
+	let delayWhen = null
 	let ignoreState = false
+	let health = HEALTHY
 
 	const server = createServer((req, res) => {
 		let body = ''
@@ -45,114 +49,120 @@ export async function startMockServer() {
 		})
 		req.on('end', () => {
 			const payload = body ? JSON.parse(body) : {}
-			requests.push({ method: req.method, url: req.url, payload })
+			const handle = () => {
+				requests.push({ method: req.method, url: req.url, payload })
 
-			const send = (status, data) => {
-				res.writeHead(status, { 'Content-Type': 'application/json' })
-				res.end(JSON.stringify(data))
-			}
-
-			const fail = failWhen?.({ method: req.method, url: req.url ?? '', payload })
-			if (fail) return send(fail, { error: 'Deliberate failure' })
-
-			const url = (req.url ?? '').split('?')[0]
-			const query = new URLSearchParams((req.url ?? '').split('?')[1] ?? '')
-
-			if (req.method === 'POST' && url === '/spaces') {
-				const space = { uuid: randomUUID(), title: payload.title ?? null, icon: payload.icon ?? null }
-				spaces.set(space.uuid, space)
-				return send(201, space)
-			}
-
-			let match = url.match(/^\/spaces\/([^/]+)\/tasks$/)
-			if (req.method === 'POST' && match) {
-				const spaceUuid = match[1]
-				if (!spaces.has(spaceUuid)) return send(404, { error: 'Space not found' })
-
-				const parent = payload.parent_uuid ? tasks.get(payload.parent_uuid) : null
-				if (payload.parent_uuid && !parent) {
-					return send(422, { error: 'Parent uuid does not reference a known task' })
-				}
-				if (parent?.parent_uuid) {
-					return send(422, {
-						error: 'Parent uuid references a task that is already a child; nesting is one level only',
-					})
+				const send = (status, data) => {
+					res.writeHead(status, { 'Content-Type': 'application/json' })
+					res.end(JSON.stringify(data))
 				}
 
-				const task = {
-					uuid: randomUUID(),
-					space_uuid: spaceUuid,
-					parent_uuid: payload.parent_uuid ?? null,
-					title: payload.title ?? null,
-					source: payload.source ?? null,
-					created_at: new Date().toISOString(),
-					finished_at: null,
-					duration: null,
-					stopped: false,
+				const fail = failWhen?.({ method: req.method, url: req.url ?? '', payload })
+				if (fail) return send(fail, { error: 'Deliberate failure' })
+
+				const url = (req.url ?? '').split('?')[0]
+				const query = new URLSearchParams((req.url ?? '').split('?')[1] ?? '')
+
+				if (req.method === 'POST' && url === '/spaces') {
+					const space = { uuid: randomUUID(), title: payload.title ?? null, icon: payload.icon ?? null }
+					spaces.set(space.uuid, space)
+					return send(201, space)
 				}
-				tasks.set(task.uuid, task)
-				return send(201, { uuid: task.uuid })
-			}
 
-			match = url.match(/^\/spaces\/([^/]+)$/)
-			if (req.method === 'GET' && match) {
-				const space = spaces.get(match[1])
-				if (!space) return send(404, { error: 'Space not found' })
+				let match = url.match(/^\/spaces\/([^/]+)\/tasks$/)
+				if (req.method === 'POST' && match) {
+					const spaceUuid = match[1]
+					if (!spaces.has(spaceUuid)) return send(404, { error: 'Space not found' })
 
-				const top = [...tasks.values()].filter(
-					(t) => t.space_uuid === space.uuid && t.parent_uuid === null,
-				)
-				// The real server: cursors are exclusive, and a limit counts back from the
-				// newest unless after moves it forward. Creation order either way.
-				const before = query.get('before')
-				const after = query.get('after')
-				const limit = query.get('limit')
-				const wanted = ignoreState ? null : query.get('state')
-				let windowed = top
-				if (wanted === 'active') windowed = windowed.filter((t) => !t.finished_at)
-				if (wanted === 'finished') windowed = windowed.filter((t) => t.finished_at)
-				if (before) windowed = windowed.filter((t) => t.created_at < before)
-				if (after) windowed = windowed.filter((t) => t.created_at > after)
-				if (limit) windowed = after ? windowed.slice(0, Number(limit)) : windowed.slice(-Number(limit))
-				return send(200, { ...space, tasks: windowed.map(snapshot) })
-			}
+					const parent = payload.parent_uuid ? tasks.get(payload.parent_uuid) : null
+					if (payload.parent_uuid && !parent) {
+						return send(422, { error: 'Parent uuid does not reference a known task' })
+					}
+					if (parent?.parent_uuid) {
+						return send(422, {
+							error: 'Parent uuid references a task that is already a child; nesting is one level only',
+						})
+					}
 
-			match = url.match(/^\/tasks\/([^/]+)$/)
-			if (match) {
-				const task = tasks.get(match[1])
-				if (!task) return send(404, { error: 'Task not found' })
+					const task = {
+						uuid: randomUUID(),
+						space_uuid: spaceUuid,
+						parent_uuid: payload.parent_uuid ?? null,
+						title: payload.title ?? null,
+						source: payload.source ?? null,
+						created_at: new Date().toISOString(),
+						finished_at: null,
+						duration: null,
+						stopped: false,
+					}
+					tasks.set(task.uuid, task)
+					return send(201, { uuid: task.uuid })
+				}
 
-				if (req.method === 'PUT') {
-					const current = payload.current ?? null
-					const end = payload.end ?? null
-					state.set(task.uuid, {
-						current,
-						end,
-						ratio: end !== null && end > 0 && current !== null ? Math.min(1, current / end) : null,
-						values: payload.values ?? {},
-						updated_at: new Date().toISOString(),
-						aggregated: false,
-					})
+				match = url.match(/^\/spaces\/([^/]+)$/)
+				if (req.method === 'GET' && match) {
+					const space = spaces.get(match[1])
+					if (!space) return send(404, { error: 'Space not found' })
 
-					const complete = payload.done === true || (current !== null && end !== null && end > 0 && current >= end)
-					if (complete && !task.finished_at) {
-						task.finished_at = new Date().toISOString()
-						task.duration = 0
-						for (const child of tasks.values()) {
-							if (child.parent_uuid === task.uuid && !child.finished_at) {
-								child.finished_at = task.finished_at
-								child.stopped = true
+					const top = [...tasks.values()].filter(
+						(t) => t.space_uuid === space.uuid && t.parent_uuid === null,
+					)
+					// The real server: cursors are exclusive, and a limit counts back from the
+					// newest unless after moves it forward. Creation order either way.
+					const before = query.get('before')
+					const after = query.get('after')
+					const limit = query.get('limit')
+					const wanted = ignoreState ? null : query.get('state')
+					let windowed = top
+					if (wanted === 'active') windowed = windowed.filter((t) => !t.finished_at)
+					if (wanted === 'finished') windowed = windowed.filter((t) => t.finished_at)
+					if (before) windowed = windowed.filter((t) => t.created_at < before)
+					if (after) windowed = windowed.filter((t) => t.created_at > after)
+					if (limit) windowed = after ? windowed.slice(0, Number(limit)) : windowed.slice(-Number(limit))
+					return send(200, { ...space, tasks: windowed.map(snapshot) })
+				}
+
+				match = url.match(/^\/tasks\/([^/]+)$/)
+				if (match) {
+					const task = tasks.get(match[1])
+					if (!task) return send(404, { error: 'Task not found' })
+
+					if (req.method === 'PUT') {
+						const current = payload.current ?? null
+						const end = payload.end ?? null
+						state.set(task.uuid, {
+							current,
+							end,
+							ratio: end !== null && end > 0 && current !== null ? Math.min(1, current / end) : null,
+							values: payload.values ?? {},
+							updated_at: new Date().toISOString(),
+							aggregated: false,
+						})
+
+						const complete = payload.done === true || (current !== null && end !== null && end > 0 && current >= end)
+						if (complete && !task.finished_at) {
+							task.finished_at = new Date().toISOString()
+							task.duration = 0
+							for (const child of tasks.values()) {
+								if (child.parent_uuid === task.uuid && !child.finished_at) {
+									child.finished_at = task.finished_at
+									child.stopped = true
+								}
 							}
 						}
 					}
+
+					return send(200, snapshot(task))
 				}
 
-				return send(200, snapshot(task))
+				if (req.method === 'GET' && url === '/up') return send(health.database && health.redis ? 200 : 503, health)
+
+				return send(404, { error: 'Not found' })
 			}
 
-			if (req.method === 'GET' && url === '/up') return send(200, { status: 'ok', database: true, redis: true })
-
-			return send(404, { error: 'Not found' })
+			const delay = delayWhen?.({ method: req.method, url: req.url ?? '', payload })
+			if (delay) setTimeout(handle, delay)
+			else handle()
 		})
 	})
 
@@ -169,6 +179,12 @@ export async function startMockServer() {
 		},
 		ignoreState: (value) => {
 			ignoreState = value
+		},
+		delayWhen: (predicate) => {
+			delayWhen = predicate
+		},
+		health: (value) => {
+			health = value ?? HEALTHY
 		},
 		close: () => new Promise((resolve) => server.close(resolve)),
 	}

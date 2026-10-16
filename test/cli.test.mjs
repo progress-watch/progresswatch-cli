@@ -353,6 +353,19 @@ describe('update', () => {
 		assert.deepEqual(sent.payload.values, { pages: 1200, log: 'working', stalled: false })
 	})
 
+	test('keeps a value a string unless the number would print back the same, and log always', async () => {
+		const { config } = await freshSpace()
+		const task = (await cli(['new', 'Release'], { config })).stdout.trim()
+
+		await cli(
+			['update', task, '--values', 'version=1.10', '--values', 'commit=0123', '--values', 'rate=1e3', '--values', 'log=42', '--values', 'errors=-3', '--values', 'ratio=0.5'],
+			{ config },
+		)
+
+		const sent = server.requests.filter((r) => r.method === 'PUT' && r.url === `/tasks/${task}`).pop()
+		assert.deepEqual(sent.payload.values, { version: '1.10', commit: '0123', rate: '1e3', log: '42', errors: -3, ratio: 0.5 })
+	})
+
 	test('rejects a non-numeric --current before sending anything', async () => {
 		const { config } = await freshSpace()
 		const task = (await cli(['new', 'Crawl'], { config })).stdout.trim()
@@ -479,6 +492,20 @@ describe('status', () => {
 		assert.match(stderr, /127\.0\.0\.1:1/)
 	})
 
+	test('tells a degraded server apart from an unreachable one, by the body of its 503', async (t) => {
+		t.after(() => server.health(null))
+		server.health({ status: 'error', database: true, redis: false })
+
+		const { code, stdout, stderr } = await cli(['status', '--json'])
+
+		assert.equal(code, 1)
+		assert.deepEqual(JSON.parse(stdout), { ...JSON.parse(stdout), reachable: true, database: true, redis: false })
+		assert.match(stderr, /something it needs is not/)
+
+		const human = await cli(['status'])
+		assert.match(human.stderr, /Health: {4}degraded {2}\(database ok, redis down\)/)
+	})
+
 	test('puts the machine-readable answer on stdout under --json', async () => {
 		const { code, stdout } = await cli(['status', '--json'])
 
@@ -518,6 +545,18 @@ describe('configure', () => {
 
 		assert.equal(code, 1)
 		assert.match(stderr, /cannot reach/)
+		assert.throws(() => readFileSync(config, 'utf8'))
+	})
+
+	test('refuses a server that answers but has a part down, naming the part', async (t) => {
+		t.after(() => server.health(null))
+		server.health({ status: 'error', database: true, redis: false })
+		const config = join(mkdtempSync(join(tmpdir(), 'pw-conf-')), 'rc.json')
+
+		const { code, stderr } = await cli(['configure', '--server', server.url], { config, noServerEnv: true })
+
+		assert.equal(code, 1)
+		assert.match(stderr, /is up but its redis is not/)
 		assert.throws(() => readFileSync(config, 'utf8'))
 	})
 
@@ -603,6 +642,25 @@ describe('run', () => {
 		assert.equal(puts.length, 2)
 		assert.equal(puts[0].payload.values.status, 'running')
 		assert.equal(puts[1].payload.done, true)
+	})
+
+	test('a heartbeat still in flight cannot land after the completion and reopen the task', async (t) => {
+		t.after(() => server.delayWhen(null))
+		const { config } = await freshSpace()
+
+		server.delayWhen(({ payload }) => payload.values?.status === 'running' && payload.values?.elapsed !== undefined && 800)
+		const { code } = await cli(['run', '--title', 'Heartbeat race', process.execPath, '-e', 'setTimeout(() => {}, 500)'], {
+			config,
+			env: { PROGRESSWATCH_HEARTBEAT_MS: '200' },
+		})
+		await new Promise((resolve) => setTimeout(resolve, 1200))
+
+		assert.equal(code, 0)
+		const task = [...server.tasks.values()].find((t) => t.title === 'Heartbeat race')
+		const puts = server.requests.filter((r) => r.method === 'PUT' && r.url === `/tasks/${task.uuid}`)
+		assert.ok(puts.some((r) => r.payload.values.elapsed !== undefined), 'a heartbeat was sent')
+		assert.equal(puts.at(-1).payload.done, true, 'the completion was handled last')
+		assert.equal(server.state.get(task.uuid).values.status, 'succeeded')
 	})
 
 	test('refuses to start the command if the task cannot be created', async () => {
